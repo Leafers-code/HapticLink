@@ -8,7 +8,7 @@ This repository includes a Linux port and the recovered original Windows applica
 
 ## Linux preview
 
-Download `HapticLink-linux-x64.tar.gz` from [Releases](../../releases), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
+Download `HapticLink-linux-x64.tar.gz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
 
 The Linux version uses Avalonia for the interface, PulseAudio or PipeWire's PulseAudio server for output-monitor audio capture, and an optional Python evdev/uinput bridge for controller rumble. Existing patterns, OSC/SPS processing, per-avatar settings and per-motor routing are retained. Configure a desktop shortcut to `HapticLink --panic` for a global stop command.
 
@@ -37,6 +37,6 @@ Audio needs `parec` and `pactl`; controller capture additionally needs Python ev
 
 ## Windows source
 
-Build `src/windows/HapticLink.csproj` on Windows with .NET SDK 8. The original uses WPF, NAudio/WASAPI and ViGEmBus. Its [original README](src/windows/README.md) describes that version. No rebuilt Windows executable is included in the Linux preview release.
+Build `src/windows/HapticLink.csproj` on Windows with .NET SDK 8. The original uses WPF, NAudio/WASAPI and ViGEmBus. Its [original README](src/windows/README.md) describes that version. No rebuilt Windows executable is included in the Linux preview download.
 
 Personal configuration, logs, access tokens and backup images are not part of this repository. Dependency license notices are in `src/linux/licenses/`.

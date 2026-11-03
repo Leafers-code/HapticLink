@@ -1,0 +1,3 @@
+47d1a5383cb3fd1a436d890041c576dd397fc69902bf015d014fe71fecd4555e  HapticLink-linux-x64.tar.gz
+72849e8222b05b70c7c767ed9f013d376a485231a96e397d08d532c2fa3cf4f4  HapticLink-linux-source.zip
+31c9c86f63850ce52e4e388d5cc584ef35350fd5fbccc5c4f25e86cf7a4b909a  HapticLink-original-source.zip
