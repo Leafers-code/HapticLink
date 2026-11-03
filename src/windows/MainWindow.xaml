@@ -1,0 +1,541 @@
+﻿<Window x:Class="HapticLink.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HapticLink" Height="800" Width="1200"
+        MinHeight="700" MinWidth="1040"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============ TOP BAR ============ -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="HAPTICLINK" FontSize="17" FontWeight="Bold"
+                               Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                    <TextBlock Text="game → toy bridge" Style="{StaticResource Lbl}" Margin="10,0,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Border x:Name="ConnPill" Background="#FF2A1D1D" BorderBrush="{StaticResource Danger}"
+                            BorderThickness="1" CornerRadius="10" Padding="12,3">
+                        <TextBlock x:Name="ConnPillText" Text="DISCONNECTED" FontSize="11"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Danger}"/>
+                    </Border>
+                    <Border x:Name="SafetyPill" Background="#FF2A2410" BorderBrush="{StaticResource Warn}"
+                            BorderThickness="1" CornerRadius="10" Padding="12,3" Margin="8,0,0,0"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="SafetyPillText" Text="SAFETY CUTOFF" FontSize="11"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Warn}"/>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="ArmBtn" Content="ARM OUTPUT" Click="ArmBtn_Click"
+                            Padding="18,6" FontWeight="SemiBold" MinWidth="130"/>
+                    <Button x:Name="PanicBtn" Content="PANIC — STOP" Click="PanicBtn_Click"
+                            Style="{StaticResource DangerButton}" Padding="18,6" Margin="8,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ MAIN ============ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="330"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT: connection + output -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,10,0">
+                <StackPanel>
+
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="CONNECTION" Style="{StaticResource Header}"/>
+
+                            <TextBlock Text="Phone / PC running Lovense Game Mode"
+                                       Style="{StaticResource Lbl}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="HostBox" Grid.Column="0" Text=""/>
+                                <Button x:Name="ScanBtn" Grid.Column="1" Content="Scan LAN"
+                                        Click="ScanBtn_Click" Margin="6,0,0,0"/>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="ConnectBtn" Grid.Column="0" Content="Connect"
+                                        Click="ConnectBtn_Click" Margin="0,0,3,0"/>
+                                <Button x:Name="DisconnectBtn" Grid.Column="1" Content="Disconnect"
+                                        Click="DisconnectBtn_Click" Margin="3,0,0,0"/>
+                            </Grid>
+
+                            <TextBlock Text="Toy" Style="{StaticResource Lbl}"/>
+                            <ComboBox x:Name="ToyCombo" Margin="0,2,0,8" SelectionChanged="ToyCombo_Changed"/>
+
+                            <TextBlock Text="Function" Style="{StaticResource Lbl}"/>
+                            <ComboBox x:Name="ActionCombo" Margin="0,2,0,8" SelectionChanged="ActionCombo_Changed">
+                                <ComboBoxItem Content="Vibrate" IsSelected="True"/>
+                                <ComboBoxItem Content="Rotate"/>
+                                <ComboBoxItem Content="Pump"/>
+                                <ComboBoxItem Content="Thrusting"/>
+                                <ComboBoxItem Content="Suction"/>
+                                <ComboBoxItem Content="Oscillate"/>
+                                <ComboBoxItem Content="Fingering"/>
+                                <ComboBoxItem Content="All"/>
+                            </ComboBox>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="TestBtn" Grid.Column="0" Content="Test 25%"
+                                        Click="TestBtn_Click" Margin="0,0,3,0"/>
+                                <Button x:Name="RefreshBtn" Grid.Column="1" Content="Refresh toys"
+                                        Click="RefreshBtn_Click" Margin="3,0,0,0"/>
+                            </Grid>
+
+                            <TextBlock x:Name="ToyInfo" Style="{StaticResource Lbl}" TextWrapping="Wrap"
+                                       Margin="0,10,0,0" Text="Not connected."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="OUTPUT" Style="{StaticResource Header}"/>
+
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock x:Name="OutPercent" Text="0%" FontSize="26" FontWeight="Bold"
+                                           FontFamily="Consolas" HorizontalAlignment="Left"/>
+                                <TextBlock x:Name="OutLevel" Text="0 / 20" Style="{StaticResource Val}"
+                                           VerticalAlignment="Bottom" FontSize="12"/>
+                            </Grid>
+
+                            <Grid x:Name="OutMeterHost" Height="18" Margin="0,0,0,8">
+                                <Border Background="{StaticResource Track}" CornerRadius="3"/>
+                                <Border Background="{StaticResource MeterFill}" CornerRadius="3">
+                                    <Border.Clip>
+                                        <RectangleGeometry x:Name="OutMeterClip" Rect="0,0,0,18"/>
+                                    </Border.Clip>
+                                </Border>
+                            </Grid>
+
+                            <Border Background="{StaticResource Track}" BorderBrush="{StaticResource Line}"
+                                    BorderThickness="1" CornerRadius="3" Height="52" Margin="0,0,0,10">
+                                <Canvas x:Name="GraphCanvas" ClipToBounds="True">
+                                    <Polyline x:Name="GraphLine" Stroke="{StaticResource Accent}"
+                                              StrokeThickness="1.4"/>
+                                </Canvas>
+                            </Border>
+
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="88"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="52"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Master cap" Style="{StaticResource Lbl}"/>
+                                <Slider x:Name="CapSlider" Grid.Column="1" Minimum="0" Maximum="1"
+                                        Value="1" ValueChanged="CapSlider_Changed"/>
+                                <TextBlock x:Name="CapVal" Grid.Column="2" Text="100%" Style="{StaticResource Val}"/>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="88"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="52"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Update rate" Style="{StaticResource Lbl}"/>
+                                <Slider x:Name="RateSlider" Grid.Column="1" Minimum="2" Maximum="20"
+                                        Value="10" TickFrequency="1" IsSnapToTickEnabled="True"
+                                        ValueChanged="RateSlider_Changed"/>
+                                <TextBlock x:Name="RateVal" Grid.Column="2" Text="10 Hz" Style="{StaticResource Val}"/>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="88"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="52"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Auto-stop" Style="{StaticResource Lbl}"/>
+                                <Slider x:Name="SafetySlider" Grid.Column="1" Minimum="0" Maximum="120"
+                                        Value="20" TickFrequency="5" IsSnapToTickEnabled="True"
+                                        ValueChanged="SafetySlider_Changed"/>
+                                <TextBlock x:Name="SafetyVal" Grid.Column="2" Text="20 m" Style="{StaticResource Val}"/>
+                            </Grid>
+
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="88"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Mix mode" Style="{StaticResource Lbl}"/>
+                                <ComboBox x:Name="MixCombo" Grid.Column="1" SelectionChanged="MixCombo_Changed">
+                                    <ComboBoxItem Content="Max" IsSelected="True"/>
+                                    <ComboBoxItem Content="Average"/>
+                                    <ComboBoxItem Content="Sum"/>
+                                    <ComboBoxItem Content="Priority"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <TextBlock Style="{StaticResource Lbl}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       Text="Hotkeys — Ctrl+Alt+X panic · Ctrl+Alt+A arm · Ctrl+Alt+↑/↓ manual level"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- RIGHT: sources -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="SOURCE LEVELS" Style="{StaticResource Header}"/>
+
+                        <Grid Margin="0,0,0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="72"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="46"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Rumble" Style="{StaticResource Lbl}"/>
+                            <Grid x:Name="M0Host" Grid.Column="1" Height="12">
+                                <Border Background="{StaticResource Track}" CornerRadius="2"/>
+                                <Border Background="{StaticResource MeterFill}" CornerRadius="2">
+                                    <Border.Clip><RectangleGeometry x:Name="M0Clip" Rect="0,0,0,12"/></Border.Clip>
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="M0Val" Grid.Column="2" Text="0%" Style="{StaticResource Val}"/>
+                            <Ellipse x:Name="M0Dot" Grid.Column="3" Width="8" Height="8" Margin="8,0,0,0"
+                                     Fill="{StaticResource Line}" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="72"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="46"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Audio" Style="{StaticResource Lbl}"/>
+                            <Grid x:Name="M1Host" Grid.Column="1" Height="12">
+                                <Border Background="{StaticResource Track}" CornerRadius="2"/>
+                                <Border Background="{StaticResource MeterFill}" CornerRadius="2">
+                                    <Border.Clip><RectangleGeometry x:Name="M1Clip" Rect="0,0,0,12"/></Border.Clip>
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="M1Val" Grid.Column="2" Text="0%" Style="{StaticResource Val}"/>
+                            <Ellipse x:Name="M1Dot" Grid.Column="3" Width="8" Height="8" Margin="8,0,0,0"
+                                     Fill="{StaticResource Line}" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="72"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="46"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="OSC" Style="{StaticResource Lbl}"/>
+                            <Grid x:Name="M2Host" Grid.Column="1" Height="12">
+                                <Border Background="{StaticResource Track}" CornerRadius="2"/>
+                                <Border Background="{StaticResource MeterFill}" CornerRadius="2">
+                                    <Border.Clip><RectangleGeometry x:Name="M2Clip" Rect="0,0,0,12"/></Border.Clip>
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="M2Val" Grid.Column="2" Text="0%" Style="{StaticResource Val}"/>
+                            <Ellipse x:Name="M2Dot" Grid.Column="3" Width="8" Height="8" Margin="8,0,0,0"
+                                     Fill="{StaticResource Line}" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="72"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="46"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Manual" Style="{StaticResource Lbl}"/>
+                            <Grid x:Name="M3Host" Grid.Column="1" Height="12">
+                                <Border Background="{StaticResource Track}" CornerRadius="2"/>
+                                <Border Background="{StaticResource MeterFill}" CornerRadius="2">
+                                    <Border.Clip><RectangleGeometry x:Name="M3Clip" Rect="0,0,0,12"/></Border.Clip>
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="M3Val" Grid.Column="2" Text="0%" Style="{StaticResource Val}"/>
+                            <Ellipse x:Name="M3Dot" Grid.Column="3" Width="8" Height="8" Margin="8,0,0,0"
+                                     Fill="{StaticResource Line}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
+                    <TabControl x:Name="Tabs" Background="Transparent" BorderThickness="0">
+
+                        <!-- ============ RUMBLE ============ -->
+                        <TabItem Header="Controller rumble">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+                                <StackPanel>
+                                    <CheckBox x:Name="RumbleOn" Content="Enabled" Click="SourceToggle_Click"
+                                              Tag="0" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="RumbleStatus" Style="{StaticResource Lbl}"
+                                               TextWrapping="Wrap" Margin="0,6,0,10" Text="Idle"/>
+                                    <TextBlock Style="{StaticResource Lbl}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                               Text="Creates a virtual Xbox pad and mirrors your real controller into it, then reads back the rumble the game sends. Needs the ViGEmBus driver. If the game keeps rumbling your real pad instead, hide it with HidHide."/>
+
+                                    <CheckBox x:Name="RumblePass" Content="Mirror physical controller into virtual pad"
+                                              Click="RumblePass_Click" Margin="0,0,0,10"/>
+
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Heavy motor" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="RumbleLarge" Grid.Column="1" Minimum="0" Maximum="2" Value="1"
+                                                ValueChanged="RumbleWeight_Changed"/>
+                                        <TextBlock x:Name="RumbleLargeVal" Grid.Column="2" Text="1.00"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Light motor" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="RumbleSmall" Grid.Column="1" Minimum="0" Maximum="2" Value="1"
+                                                ValueChanged="RumbleWeight_Changed"/>
+                                        <TextBlock x:Name="RumbleSmallVal" Grid.Column="2" Text="1.00"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Pad poll rate" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="RumblePoll" Grid.Column="1" Minimum="60" Maximum="1000"
+                                                Value="500" TickFrequency="20" IsSnapToTickEnabled="True"
+                                                ValueChanged="RumblePoll_Changed"/>
+                                        <TextBlock x:Name="RumblePollVal" Grid.Column="2" Text="500 Hz"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource Lbl}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                               Text="How often the physical pad is read and mirrored. This is separate from the toy Update rate on the left. 500 Hz adds about 2 ms; drop it only if you see CPU cost."/>
+
+                                    <Border x:Name="RumbleShaper" BorderBrush="{StaticResource Line}"
+                                            BorderThickness="0,1,0,0" Padding="0,10,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- ============ AUDIO ============ -->
+                        <TabItem Header="Game audio">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+                                <StackPanel>
+                                    <CheckBox x:Name="AudioOn" Content="Enabled" Click="SourceToggle_Click"
+                                              Tag="1" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="AudioStatus" Style="{StaticResource Lbl}"
+                                               TextWrapping="Wrap" Margin="0,6,0,10" Text="Idle"/>
+                                    <TextBlock Style="{StaticResource Lbl}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                               Text="Loopback-captures the output device, so it works with any game. Bass mode tracks explosions, engines and impacts; Loudness tracks overall intensity. This hears everything on the device, including voice chat and music."/>
+
+                                    <TextBlock Text="Output device" Style="{StaticResource Lbl}"/>
+                                    <ComboBox x:Name="AudioDevice" Margin="0,2,0,10"
+                                              SelectionChanged="AudioDevice_Changed"/>
+
+                                    <TextBlock Text="Band" Style="{StaticResource Lbl}"/>
+                                    <ComboBox x:Name="AudioBandCombo" Margin="0,2,0,12"
+                                              SelectionChanged="AudioBand_Changed">
+                                        <ComboBoxItem Content="Loudness" IsSelected="True"/>
+                                        <ComboBoxItem Content="Bass"/>
+                                        <ComboBoxItem Content="Treble"/>
+                                    </ComboBox>
+
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Quiet floor" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="AudioFloor" Grid.Column="1" Minimum="-80" Maximum="-20"
+                                                Value="-48" ValueChanged="AudioDb_Changed"/>
+                                        <TextBlock x:Name="AudioFloorVal" Grid.Column="2" Text="-48 dB"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Loud ceiling" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="AudioCeil" Grid.Column="1" Minimum="-40" Maximum="0"
+                                                Value="-12" ValueChanged="AudioDb_Changed"/>
+                                        <TextBlock x:Name="AudioCeilVal" Grid.Column="2" Text="-12 dB"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+
+                                    <Border x:Name="AudioShaper" BorderBrush="{StaticResource Line}"
+                                            BorderThickness="0,1,0,0" Padding="0,10,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- ============ OSC ============ -->
+                        <TabItem Header="VRChat OSC">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+                                <StackPanel>
+                                    <CheckBox x:Name="OscOn" Content="Enabled" Click="SourceToggle_Click"
+                                              Tag="2" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="OscStatus" Style="{StaticResource Lbl}"
+                                               TextWrapping="Wrap" Margin="0,6,0,10" Text="Idle"/>
+                                    <CheckBox x:Name="OscRemember" Click="OscRemember_Click" Margin="0,0,0,2"
+                                              IsEnabled="False" Content="Remember these settings for this avatar"/>
+                                    <TextBlock x:Name="OscProfileInfo" Style="{StaticResource Lbl}" TextWrapping="Wrap"
+                                               Margin="20,0,0,12" Text="Waiting to learn which avatar you're wearing."/>
+                                    <CheckBox x:Name="OscAuto" Click="OscAuto_Click" Margin="0,0,0,4"
+                                              Content="Auto-detect touch sensors — nothing to tick"/>
+                                    <CheckBox x:Name="OscSelf" Click="OscAuto_Click" Margin="20,0,0,10"
+                                              Content="Count my own hands too (handy for testing alone)"/>
+                                    <TextBlock Style="{StaticResource Lbl}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                               Text="Wear an avatar with SPS haptics and touch is picked up by itself — the line above says whether the avatar you're in has sensors. Switching avatars needs nothing from you."/>
+
+                                    <Border x:Name="OscFeel" BorderBrush="{StaticResource Line}"
+                                            BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,0,0,12"/>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Listen port" Style="{StaticResource Lbl}"/>
+                                        <TextBox x:Name="OscPort" Grid.Column="1" Text="9001"/>
+                                        <Button x:Name="OscApplyPort" Grid.Column="2" Content="Apply"
+                                                Click="OscApplyPort_Click" HorizontalAlignment="Left" Margin="8,0,0,0"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,6">
+                                        <TextBlock Text="Other parameters (advanced)" Style="{StaticResource Lbl}"
+                                                   HorizontalAlignment="Left"/>
+                                        <Button x:Name="OscClear" Content="Clear list" Click="OscClear_Click"
+                                                HorizontalAlignment="Right" Padding="8,2"/>
+                                    </Grid>
+                                    <ListBox x:Name="OscList" Height="220" SelectionMode="Multiple"
+                                             SelectionChanged="OscList_Changed"/>
+                                    <TextBlock Style="{StaticResource Lbl}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                               Text="Only for avatars without SPS: tick something that moves when you're touched. Menu toggles and sliders sit at a fixed value and just buzz constantly. Ticked entries add to the auto-detected sensors; the highest value wins."/>
+
+                                    <Border x:Name="OscShaper" BorderBrush="{StaticResource Line}"
+                                            BorderThickness="0,1,0,0" Padding="0,10,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- ============ MANUAL ============ -->
+                        <TabItem Header="Manual + patterns">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+                                <StackPanel>
+                                    <CheckBox x:Name="ManualOn" Content="Enabled" Click="SourceToggle_Click"
+                                              Tag="3" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="ManualStatus" Style="{StaticResource Lbl}"
+                                               TextWrapping="Wrap" Margin="0,6,0,12" Text="Ready"/>
+
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Level" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="ManualLevel" Grid.Column="1" Minimum="0" Maximum="1"
+                                                Value="0" ValueChanged="ManualLevel_Changed"/>
+                                        <TextBlock x:Name="ManualLevelVal" Grid.Column="2" Text="0%"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Pattern" Style="{StaticResource Lbl}"/>
+                                    <ComboBox x:Name="PatternCombo" Margin="0,2,0,10"
+                                              SelectionChanged="Pattern_Changed">
+                                        <ComboBoxItem Content="None" IsSelected="True"/>
+                                        <ComboBoxItem Content="Pulse"/>
+                                        <ComboBoxItem Content="Wave"/>
+                                        <ComboBoxItem Content="Ramp"/>
+                                        <ComboBoxItem Content="Random"/>
+                                    </ComboBox>
+
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Period" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="PatternPeriod" Grid.Column="1" Minimum="0.2" Maximum="20"
+                                                Value="2" ValueChanged="Pattern_Changed"/>
+                                        <TextBlock x:Name="PatternPeriodVal" Grid.Column="2" Text="2.0 s"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/><ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Depth" Style="{StaticResource Lbl}"/>
+                                        <Slider x:Name="PatternDepth" Grid.Column="1" Minimum="0" Maximum="1"
+                                                Value="1" ValueChanged="Pattern_Changed"/>
+                                        <TextBlock x:Name="PatternDepthVal" Grid.Column="2" Text="100%"
+                                                   Style="{StaticResource Val}"/>
+                                    </Grid>
+
+                                    <Border x:Name="ManualShaper" BorderBrush="{StaticResource Line}"
+                                            BorderThickness="0,1,0,0" Padding="0,10,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ============ LOG ============ -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,10,0,0" Padding="10,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="110"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="LOG" Style="{StaticResource Header}" Margin="0,0,0,4"/>
+                <TextBox x:Name="LogBox" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         BorderThickness="0" Background="Transparent" FontSize="11"
+                         Foreground="{StaticResource Muted}" TextWrapping="NoWrap"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

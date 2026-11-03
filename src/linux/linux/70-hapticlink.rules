@@ -1,0 +1,4 @@
+# Optional: access only to uinput and devices tagged as gamepads by udev.
+# Install explicitly as documented in README-Linux.md. Never run the GUI as root.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", GROUP="hapticlink", MODE="0660"
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_JOYSTICK}=="1", TAG+="uaccess", GROUP="hapticlink", MODE="0660"

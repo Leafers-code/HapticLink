@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>HapticLink</AssemblyName>
+    <Version>1.1.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <Compile Remove="Tests/**/*.cs" />
+    <None Update="linux/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="licenses/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="README-Linux.md;VALIDATION.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

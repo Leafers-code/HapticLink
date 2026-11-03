@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+__pycache__/
+*.pyc
+.vs/
+.idea/
+config.json
+haptic.log
+.env
+.env.*
