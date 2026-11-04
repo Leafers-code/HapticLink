@@ -4,29 +4,32 @@ A desktop app that maps game audio, controller rumble, VRChat OSC and manual pat
 
 This repository includes a Linux port and the recovered original Windows application.
 
-The updated 1.3 app also has a [Windows build](src/linux/README-Windows.md), with WASAPI output capture and ViGEm/XInput rumble. Per-application audio isolation is currently Linux-only; the overlay, EQ, integration bridge and game-focus pausing are available in the new Windows app.
+The updated 1.4 app also has a [Windows build](src/linux/README-Windows.md), with WASAPI output capture and ViGEm/XInput rumble. Per-application audio isolation is currently Linux-only; the overlay, EQ, integration bridge and game-focus pausing are available in the new Windows app.
 
 ![HapticLink classic interface](docs/classic-preview.png)
 
-## Plugin manager
+## Game plugins and integrated audio EQ
 
-**1.3 preview adds a Plugins tab:** manage 12 built-in features, inspect their status, and configure them from one place. Install bundled CS2, Intiface/Buttplug and custom HTTP-event profiles, or import your own JSON profile. Profiles support enable/disable, event mapping edits, export, updates and removal with undo. [Plugin guide](src/linux/PLUGINS.md).
+**1.4 preview:** CS2 and Overwatch 2 come preconfigured as their own tabs. CS2 has ready-made event effects and a game-config installer. Overwatch uses the separate [OverStim](https://codeberg.org/pharmercy/OverStim) companion; its tab can configure the server connection and launch your selected install. Plugins adds/removes game tabs and imports custom integrations. [Game plugin guide](src/linux/PLUGINS.md).
 
-![HapticLink plugin manager](docs/plugins-preview.png)
+The frequency EQ now lives directly inside Audio, next to device selection. Advanced audio/tonal settings are folded below, and source meters become a compact row in smaller windows.
+
+![Integrated audio capture and frequency EQ](docs/audio-preview.png)
+![CS2 game plugin tab](docs/cs2-preview.png)
 
 ## Linux preview
 
-**1.2.1 restores the original UI:** compact dark cards, a top-bar arm/panic pair, persistent source meters, inline sliders and a bottom log. Events, overlay and EQ remain available, with EQ on its own tab. Select bass, mids, treble or an exact capture frequency range with draggable cutoffs.
+**1.2.1 restores the original UI:** compact dark cards, a top-bar arm/panic pair, persistent source meters, inline sliders and a bottom log. Events and overlay remain available, with frequency EQ integrated into Audio. Select bass, mids, treble or an exact capture frequency range with draggable cutoffs.
 
 **1.2 features:** an Intiface/Buttplug-compatible vibration receiver (v2/v3/v4), configurable game-event rules and CS2 GSI, per-application/game audio capture, game-focus pausing, a transparent overlay with click-through/interactive modes, and a frequency-selective haptics EQ. Start with the [integration and overlay guide](src/linux/INTEGRATIONS.md).
 
-Download `HapticLink-linux-x64-1.3.0-preview.tar.xz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
+Download `HapticLink-linux-x64-1.4.0-preview.tar.xz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
 
 ![HapticLink overlay preview](docs/overlay-preview.png)
 
 The Linux version uses Avalonia for the interface, PulseAudio or PipeWire's PulseAudio server for output-monitor audio capture, and an optional Python evdev/uinput bridge for controller rumble. Existing patterns, OSC/SPS processing, per-avatar settings and per-motor routing are retained. Configure a desktop shortcut to `HapticLink --panic` for a global stop command.
 
-**Preview status:** release compilation, 112 C# checks (including the official Buttplug client) and nine Python tests passed on Windows. The Windows app has been opened and its WASAPI meter verified. The Linux executable has not yet been launched on Linux; native audio isolation, game focus, overlay click-through, uinput and Steam/Proton routing still need Linux desktop testing. See the [validation report](src/linux/VALIDATION.md).
+**Preview status:** release compilation, 123 C# checks (including the official Buttplug client) and nine Python tests passed on Windows. The Windows app has been opened and its WASAPI meter verified. The Linux executable has not yet been launched on Linux; native audio isolation, game focus, overlay click-through, uinput and Steam/Proton routing still need Linux desktop testing. See the [validation report](src/linux/VALIDATION.md).
 
 ## Source layout
 

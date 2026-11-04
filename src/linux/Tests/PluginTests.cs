@@ -14,7 +14,8 @@ internal static partial class Tests
         var root = Path.Combine(home, "profile-test-" + Guid.NewGuid().ToString("N"));
         var s = new Settings(); var manager = new PluginManager(s, root);
         var catalog = PluginManager.Catalog();
-        Check(catalog.Length == 3 && catalog.All(p => PluginManager.Parse(PluginManager.Serialize(p)).Id == p.Id), "bundled integration profiles satisfy the import schema");
+        Check(catalog.Length == 4 && catalog.All(p => PluginManager.Parse(PluginManager.Serialize(p)).Id == p.Id), "bundled integration profiles satisfy the import schema");
+        Check(PluginManager.Parse("{\"schemaVersion\":1,\"id\":\"legacy-game\",\"name\":\"Legacy game\",\"version\":\"1.0.0\",\"kind\":\"http-events\",\"rules\":[]}").Name == "Legacy game", "existing version-one plugin exports remain importable");
         var custom = catalog.Single(p => p.Kind == "http-events"); custom.Id = "test-events";
         custom.Rules = new() { new() { Event = "damage", Level = .7, DurationMs = 1000, CooldownMs = 5000 } };
         manager.Install(PluginManager.Serialize(custom));
@@ -68,7 +69,7 @@ internal static partial class Tests
         manager.Install(File.ReadAllText(backup));
         Check(manager.Installed.Single(p => p.Profile.Id == other.Id).Enabled == false, "restoring a removed profile does not silently enable it");
 
-        var buttplug = catalog.Single(p => p.Kind == "buttplug"); manager.Install(PluginManager.Serialize(buttplug)); manager.SetEnabled(buttplug.Id, true);
+        var buttplug = catalog.Single(p => p.Id == "overwatch2"); manager.Install(PluginManager.Serialize(buttplug)); manager.SetEnabled(buttplug.Id, true);
         using (var socket = new ClientWebSocket())
         {
             await socket.ConnectAsync(new Uri(manager.Endpoint(buttplug)), default);
@@ -83,6 +84,8 @@ internal static partial class Tests
             await Exchange("[{\"RequestServerInfo\":{\"Id\":1,\"ClientName\":\"Profile test\",\"MessageVersion\":3}}]");
             await Exchange("[{\"ScalarCmd\":{\"Id\":2,\"DeviceIndex\":0,\"Scalars\":[{\"Index\":0,\"Scalar\":0.6,\"ActuatorType\":\"Vibrate\"}]}}]");
             bridge.Tick(25); Check(Math.Abs(bridge.Raw - .6) < .001, "installed Buttplug profile receives vibration over its dedicated WebSocket");
+            manager.SetGain(buttplug.Id, .5); bridge.Tick(25);
+            Check(Math.Abs(bridge.Raw - .3) < .001 && Math.Abs(bridge.ProfileLevel(buttplug.Id) - .3) < .001, "game-specific intensity scale applies live to the incoming vibration");
             manager.SetEnabled(buttplug.Id, false); bridge.Tick(25);
             Check(bridge.Raw == 0, "disabling a Buttplug profile immediately clears held vibration"); socket.Abort();
         }
@@ -98,6 +101,15 @@ internal static partial class Tests
         await http.PostAsJsonAsync(manager.Endpoint(cs2), Frame(20)); bridge.Tick(25);
         Check(bridge.Raw == 0, "re-enabling a CS2 profile starts a fresh baseline");
         bridge.Stop();
+        var gameSettings = new Settings(); var games = new PluginManager(gameSettings, Path.Combine(root, "bundled-games")); games.EnsureGameDefaults();
+        Check(games.Installed.Length == 2 && games.Installed.All(g => !g.Enabled) && games.Installed.Any(g => g.Profile.Companion == "overstim"), "CS2 and Overwatch game plugins are preconfigured without being enabled");
+        games.Uninstall("overwatch2"); games.EnsureGameDefaults();
+        Check(games.Installed.Length == 1, "removed bundled games are not reinstalled on every startup");
+        var ini = GameIntegrationSetup.OverStimIni("[config]\nwebsocket_address=ws://localhost:12345\nmonitor_id=2\n[other]\nkeep=true\n", "ws://127.0.0.1:12346/plugins/overwatch2");
+        Check(ini.Contains("websocket_address=ws://127.0.0.1:12346/plugins/overwatch2") && ini.Contains("monitor_id=2") && ini.Contains("[other]\nkeep=true") && ini.Contains("read_sensors=false"), "OverStim setup changes the connection while preserving other settings");
+        var cfgDirectory = Path.Combine(root, "game-cfg"); Directory.CreateDirectory(cfgDirectory);
+        var configFile = GameIntegrationSetup.InstallCs2Config(cfgDirectory, "old config"); GameIntegrationSetup.InstallCs2Config(cfgDirectory, config);
+        Check(File.ReadAllText(configFile) == config && Directory.GetFiles(cfgDirectory, "*.backup-*").Any(f => File.ReadAllText(f) == "old config"), "CS2 config installer writes the ready-made file and preserves an existing config");
         // Restore the GUI fixture without enabling local backends.
         new Settings().Save();
     }

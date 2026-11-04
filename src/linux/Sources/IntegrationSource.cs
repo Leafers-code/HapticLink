@@ -32,6 +32,15 @@ public sealed class IntegrationSource : SourceBase
     public string LastEvent { get; private set; } = "Waiting for an integration";
     public string[] EventHistory => _history.ToArray();
     public int ClientCount => _clients.Count;
+    public int ProfileClientCount(string id) => _clients.Values.Count(c => c.ProfileId == id);
+    public double ProfileLevel(string id)
+    {
+        if (_plugins.GetEnabled(id) == null) return 0;
+        var now = Environment.TickCount64;
+        var level = _pulses.Values.Where(p => p.profile == id && p.until > now).Select(p => p.level)
+            .Concat(_clients.Values.Where(c => c.ProfileId == id && now - Interlocked.Read(ref c.LastPing) <= Math.Clamp(_s.IntegrationTimeoutMs, 1000, 30000)).Select(c => c.Level)).DefaultIfEmpty(0).Max();
+        return Sig.Clamp01(level * _plugins.Gain(id));
+    }
     public string Endpoint => $"ws://127.0.0.1:{(Running ? _activePort : _s.IntegrationPort)}";
     public IntegrationSource(Settings s, PluginManager plugins = null)
     {
@@ -173,11 +182,11 @@ public sealed class IntegrationSource : SourceBase
         var now = Environment.TickCount64;
         double max = 0;
         foreach (var (id, pulse) in _pulses)
-            if (now >= pulse.until || pulse.profile != null && _plugins.GetEnabled(pulse.profile) == null) _pulses.TryRemove(id, out _); else max = Math.Max(max, pulse.level);
+            if (now >= pulse.until || pulse.profile != null && _plugins.GetEnabled(pulse.profile) == null) _pulses.TryRemove(id, out _); else max = Math.Max(max, pulse.level * (pulse.profile == null ? 1 : _plugins.Gain(pulse.profile)));
         var timeout = Math.Clamp(_s.IntegrationTimeoutMs, 1000, 30000);
         foreach (var client in _clients.Values)
             if (now - Interlocked.Read(ref client.LastPing) > timeout || client.ProfileId != null && _plugins.GetEnabled(client.ProfileId, "buttplug") == null) { client.Level = 0; client.Socket.Abort(); }
-            else max = Math.Max(max, client.Level);
+            else max = Math.Max(max, client.Level * (client.ProfileId == null ? 1 : _plugins.Gain(client.ProfileId)));
         Raw = Sig.Clamp01(max);
         Status = $"{Endpoint} · {ClientCount} client(s) · {LastEvent}";
     }

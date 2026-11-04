@@ -146,12 +146,12 @@ internal static partial class Tests
     private static void RunUi(string home)
     {
         Environment.SetEnvironmentVariable("HAPTICLINK_HOME", Path.Combine(home, "ui-config-" + Guid.NewGuid().ToString("N")));
-        new Settings().Save();
+        var uiPort = new TcpListener(IPAddress.Loopback, 0); uiPort.Start(); var uiSettings = new Settings { IntegrationPort = ((IPEndPoint)uiPort.LocalEndpoint).Port }; uiPort.Stop(); uiSettings.Save();
         AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
         var window = new MainWindow(); window.Show();
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-        Check(tabs.Items.Count == 9, "all nine UI tabs constructed");
+        Check(tabs.Items.Count == 10, "base tabs and preconfigured CS2/Overwatch game tabs constructed");
         foreach (TabItem tab in tabs.Items)
         {
             tabs.SelectedItem = tab;
@@ -160,14 +160,14 @@ internal static partial class Tests
             using var image = window.CaptureRenderedFrame();
             Check(image != null && image.PixelSize.Width > 800, "render tab: " + tab.Header);
             image.Save(Path.Combine(home, "ui-" + tab.Header.ToString().Replace(' ', '-') + ".png"));
-            if (tab.Header.ToString() == "EQ")
+            if (tab.Header.ToString() == "Audio")
             {
                 var eq = (EqualizerPanel)typeof(MainWindow).GetField("_equalizer", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
                 eq.BringIntoView(); Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 using var detail = window.CaptureRenderedFrame(); detail.Save(Path.Combine(home, "ui-Equalizer.png"));
             }
         }
-        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "EQ");
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Audio");
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         var bassButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Bass");
         bassButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
@@ -193,30 +193,38 @@ internal static partial class Tests
         Check(window.GetVisualDescendants().OfType<TextBox>().Where(b => b.Name == "ActivityLog").All(InViewport), "persistent log remains visible at minimum window size");
         Check(tabs.Items.Cast<TabItem>().All(InViewport), "all tab headers fit at minimum window size");
         using (var compactImage = window.CaptureRenderedFrame()) compactImage.Save(Path.Combine(home, "ui-Minimum-size.png"));
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Audio");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Check(window.GetVisualDescendants().OfType<NumericUpDown>().Where(c => c.Name is "CaptureFromHz" or "CaptureToHz").All(InViewport), "integrated audio frequency cutoffs fit the minimum window");
+        using (var minimumAudio = window.CaptureRenderedFrame()) minimumAudio.Save(Path.Combine(home, "ui-Audio-Minimum.png"));
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "CS2");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Check(InViewport(window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Apply event effects")), "all preconfigured CS2 event controls fit the minimum window");
+        using (var minimumGame = window.CaptureRenderedFrame()) minimumGame.Save(Path.Combine(home, "ui-CS2-Minimum.png"));
         window.Width = 1200; window.Height = 800;
-        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Plugins");
+        var liveEngine = (Engine)typeof(MainWindow).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(window);
+        Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "EQ"), "frequency EQ is part of Audio instead of a separate tab");
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Audio");
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-        var manualFeature = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PluginFeature-manual");
-        manualFeature.IsChecked = false;
+        Check(window.GetVisualDescendants().OfType<EqualizerPanel>().Any(), "audio capture and frequency controls share one panel");
+        Check(window.GetVisualDescendants().OfType<NumericUpDown>().Where(c => c.Name is "CaptureFromHz" or "CaptureToHz").All(InViewport), "audio frequency cutoffs fit the default window without scrolling");
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "CS2");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        var enabledGame = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GameEnabled-cs2-events"); enabledGame.IsChecked = true;
         typeof(MainWindow).GetMethod("Refresh", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window, null);
         var sourceToggles = (CheckBox[])typeof(MainWindow).GetField("_sourceToggles", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(window);
-        Check(!liveSettings.Manual.Enabled && sourceToggles[3].IsChecked == false, "plugin source toggle stays synchronized with the original source controls");
-        manualFeature.IsChecked = true;
-        var frequencyFeature = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PluginFeature-frequency");
-        frequencyFeature.IsChecked = false;
-        Check(!liveSettings.AudioFrequencyCaptureEnabled && AudioFrequencyRange.For(liveSettings) == (20d, 20000d), "plugin manager bypasses the live frequency capture filter");
-        frequencyFeature.IsChecked = true;
-        void ClickButton(string title) => window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == title).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-        ClickButton("Available"); Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-        using (var availableImage = window.CaptureRenderedFrame()) availableImage.Save(Path.Combine(home, "ui-Plugins-Available.png"));
-        var search = window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PluginSearch"); search.Text = "Counter-Strike";
-        window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "Install-cs2-events").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-        var liveEngine = (Engine)typeof(MainWindow).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(window);
-        Check(liveEngine.Plugins.Installed.Single().Profile.Kind == "cs2" && !liveSettings.Events.Enabled && !liveEngine.Armed, "UI catalog installs a profile without enabling the bridge or arming output");
+        Check(liveSettings.Events.Enabled && sourceToggles[4].IsChecked == true && !liveEngine.Armed, "game tab enable starts the bridge and synchronizes controls without arming output");
+        enabledGame.IsChecked = false;
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Plugins");
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-        using (var installedImage = window.CaptureRenderedFrame()) installedImage.Save(Path.Combine(home, "ui-Plugins-Installed.png"));
-        ClickButton("Remove"); Check(liveEngine.Plugins.Installed.Length == 0, "plugin UI removes the installed profile");
-        ClickButton("Undo removal"); Check(liveEngine.Plugins.Installed.Length == 1 && !liveEngine.Plugins.Installed[0].Enabled, "plugin UI can undo a removal without enabling the profile");
+        using (var gamesImage = window.CaptureRenderedFrame()) gamesImage.Save(Path.Combine(home, "ui-Game-Plugins.png"));
+        void ClickButton(string name) => window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ClickButton("RemoveGame-overwatch2"); Dispatcher.UIThread.RunJobs();
+        Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "Overwatch 2"), "removing a game removes its tab");
+        window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Undo removal").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+        Check(tabs.SelectedItem is TabItem restored && restored.Header.ToString() == "Overwatch 2", "restoring a game restores and opens its dedicated tab");
+        Check(window.GetVisualDescendants().OfType<Button>().Any(b => b.Content?.ToString() == "Configure OverStim"), "Overwatch tab offers actual companion configuration");
         // Rebuild after avatar changes: repeated controls must not retain an old parent.
         var oscPanel = typeof(MainWindow).GetMethod("OscPanel", BindingFlags.NonPublic | BindingFlags.Instance);
         var rebuilt = (Control)oscPanel.Invoke(window, null);

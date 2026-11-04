@@ -21,17 +21,19 @@ public sealed class EqualizerPanel : StackPanel
     private readonly CheckBox _enabled = new() { Content = "Enabled", Margin = new Thickness(10, 0, 0, 0) };
     private readonly List<(Button Button, double Low, double High)> _presets = new();
     private bool _syncing;
+    public Control TonalControls => _tonal;
 
-    public EqualizerPanel(Settings settings, AudioSource source)
+    public EqualizerPanel(Settings settings, AudioSource source, bool compact = false)
     {
-        _settings = settings; _source = source; Spacing = 5;
+        _settings = settings; _source = source; Spacing = compact ? 3 : 5;
+        if (compact) _view.Height = 78;
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
         header.Children.Add(new TextBlock { Text = "AUDIO FREQUENCY CAPTURE", FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Classic.Muted });
         Grid.SetColumn(_selection, 1); header.Children.Add(_selection); Children.Add(header);
         _enabled.IsChecked = settings.AudioFrequencyCaptureEnabled;
         _enabled.IsCheckedChanged += (_, _) => { if (!_syncing) { settings.AudioFrequencyCaptureEnabled = _enabled.IsChecked == true; Refresh(); } };
         Grid.SetColumn(_enabled, 2); header.Children.Add(_enabled);
-        Children.Add(new TextBlock { Text = "Choose the part of the audio that drives haptics. Drag the blue edges or enter a range.", FontSize = 11, Foreground = Classic.Muted, TextWrapping = TextWrapping.Wrap });
+        if (!compact) Children.Add(new TextBlock { Text = "Choose the part of the audio that drives haptics. Drag the blue edges or enter a range.", FontSize = 11, Foreground = Classic.Muted, TextWrapping = TextWrapping.Wrap });
         var presets = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         void Preset(string title, AudioBand band, double low, double high)
         {
@@ -47,9 +49,9 @@ public sealed class EqualizerPanel : StackPanel
         _view.RangeChanged += Apply;
         (_from, _fromSlider) = RangeRow("From (Hz)", true);
         (_to, _toSlider) = RangeRow("To (Hz)", false);
-        Children.Add(new TextBlock { Text = "Blue = captured frequencies. Other frequencies are filtered out with a gradual roll-off. Speaker audio stays unchanged.", FontSize = 11, Foreground = Classic.Muted, TextWrapping = TextWrapping.Wrap });
+        Children.Add(new TextBlock { Text = compact ? "Drag the blue edges or enter Hz. Selection drives haptics; speaker audio stays unchanged." : "Blue = captured frequencies. Other frequencies are filtered out with a gradual roll-off. Speaker audio stays unchanged.", FontSize = 11, Foreground = Classic.Muted, TextWrapping = TextWrapping.Wrap });
         _tonal = new TonalEqualizerPanel(settings, source);
-        Children.Add(new Expander { Header = "Advanced tonal shaping", Content = _tonal });
+        if (!compact) Children.Add(new Expander { Header = "Advanced tonal shaping", Content = _tonal });
         Refresh();
     }
 

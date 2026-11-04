@@ -23,7 +23,10 @@ public sealed class MainWindow : Window
     private CheckBox _overlayToggle, _focusToggle;
     private TabControl _tabs;
     private PluginManagerPanel _plugins;
+    private readonly Dictionary<string, (TabItem Tab, GamePluginPanel Panel, string Stamp)> _gameTabs = new();
     private readonly SignalMeter[] _meters = new SignalMeter[5];
+    private readonly SignalMeter[] _compactMeters = new SignalMeter[5];
+    private readonly TextBlock[] _compactLevels = new TextBlock[5];
     private readonly TextBlock[] _levels = new TextBlock[5];
     private readonly Border[] _dots = new Border[5];
     private readonly TextBlock _connectionPillText = Text("DISCONNECTED"), _outputLevel = Text("0 / 20");
@@ -47,10 +50,11 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "HapticLink · 1.3 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
+        Title = "HapticLink · 1.4 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Classic.Background;
         _engine = new Engine(_s);
+        _engine.Plugins.EnsureGameDefaults();
         _host = new TextBox { Text = _s.Host, Watermark = "192.168.1.42", MinWidth = 0 };
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(10) };
 
@@ -115,6 +119,18 @@ public sealed class MainWindow : Window
             Grid.SetColumn(_dots[i], 3); row.Children.Add(_dots[i]); sources.Children.Add(row);
         }
         var sourceCard = Card(sources); sourceCard.Margin = new Thickness(0, 0, 0, 10); right.Children.Add(sourceCard);
+        var compactSources = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*,*,*") };
+        for (int i = 0; i < 5; i++)
+        {
+            var cell = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto"), ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, i == 4 ? 0 : 10, 0) };
+            var name = Text(sourceNames[i]); name.FontSize = 10; cell.Children.Add(name);
+            _compactLevels[i] = Text("0%"); _compactLevels[i].FontFamily = Classic.Mono; _compactLevels[i].FontSize = 10;
+            Grid.SetColumn(_compactLevels[i], 1); cell.Children.Add(_compactLevels[i]);
+            _compactMeters[i] = new SignalMeter { Height = 8, Margin = new Thickness(0, 5, 0, 0) }; Grid.SetRow(_compactMeters[i], 1); Grid.SetColumnSpan(_compactMeters[i], 2); cell.Children.Add(_compactMeters[i]);
+            Grid.SetColumn(cell, i); compactSources.Children.Add(cell);
+        }
+        var compactCard = Card(compactSources); compactCard.Padding = new Thickness(12, 9); compactCard.Margin = new Thickness(0, 0, 0, 10); compactCard.IsVisible = false; right.Children.Add(compactCard);
+        SizeChanged += (_, _) => { var compact = Bounds.Height > 0 && Bounds.Height < 760; sourceCard.IsVisible = !compact; compactCard.IsVisible = compact; };
         var tabs = new TabControl { FontSize = 12, Padding = new Thickness(0) };
         _tabs = tabs;
         tabs.Items.Add(new TabItem { Header = "Controller", Content = Scroll(RumblePanel()) });
@@ -123,8 +139,6 @@ public sealed class MainWindow : Window
         tabs.Items.Add(new TabItem { Header = "Manual", Content = Scroll(ManualPanel()) });
         tabs.Items.Add(new TabItem { Header = "Events", Content = Scroll(EventsPanel()) });
         tabs.Items.Add(new TabItem { Header = "Overlay", Content = Scroll(OverlayPanel()) });
-        _equalizer = new EqualizerPanel(_s, _engine.Audio);
-        tabs.Items.Add(new TabItem { Header = "EQ", Content = Scroll(_equalizer) });
         _plugins = new PluginManagerPanel(_engine, Navigate);
         tabs.Items.Add(new TabItem { Header = "Plugins", Content = Scroll(_plugins) });
         tabs.Items.Add(new TabItem { Header = "Settings", Content = Scroll(SettingsPanel()) });
@@ -132,6 +146,7 @@ public sealed class MainWindow : Window
         var logPanel = Panel(); logPanel.Spacing = 3; logPanel.Children.Add(Heading("LOG")); logPanel.Children.Add(_log);
         var logCard = Card(logPanel); logCard.Padding = new Thickness(10, 8); logCard.Margin = new Thickness(0, 10, 0, 0); Grid.SetRow(logCard, 2); root.Children.Add(logCard);
         Content = root;
+        SyncGameTabs(); _engine.Plugins.Changed += PluginChanged;
         _engine.Updated += state => _latest = state;
         Log.Line += OnLog;
         _timer.Tick += (_, _) => Refresh();
@@ -146,7 +161,7 @@ public sealed class MainWindow : Window
             if (_closed) return;
             e.Cancel = true;
             if (_closing) return;
-            _closing = true; _timer.Stop(); _lifetime.Cancel(); _overlay?.Close(); _engine.Panic(); _s.Save();
+            _closing = true; _engine.Plugins.Changed -= PluginChanged; _timer.Stop(); _lifetime.Cancel(); _overlay?.Close(); _engine.Panic(); _s.Save();
             await _engine.ShutdownAsync();
             Log.Line -= OnLog; _engine.Dispose(); _closed = true; Close();
         };
@@ -206,41 +221,42 @@ public sealed class MainWindow : Window
     }
     private StackPanel AudioPanel()
     {
-        var p = SourcePanel(1, "GAME AUDIO", OperatingSystem.IsWindows() ? "Use game audio from your chosen WASAPI output device." : "Capture an output monitor or application through PipeWire / PulseAudio.");
+        var p = Panel();
+        var enabled = Check("Enable audio", _s.Audio.Enabled, x => { if (_s.Audio.Enabled != x) _engine.SetSourceEnabled(1, x); });
+        _sourceToggles[1] = enabled; _status[1] = Text("Idle"); _status[1].MaxLines = 1; _status[1].TextTrimming = TextTrimming.CharacterEllipsis;
+        var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 12 };
+        heading.Children.Add(enabled); Grid.SetColumn(_status[1], 1); heading.Children.Add(_status[1]); p.Children.Add(heading);
         var choices = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         choices.Items.Add(new Choice("", "Default output monitor"));
         if (_s.AudioDeviceId.Length > 0) choices.Items.Add(new Choice(_s.AudioDeviceId, _s.AudioDeviceId));
         choices.SelectedIndex = choices.Items.Count - 1;
         choices.SelectionChanged += (_, _) => { if (choices.SelectedItem is Choice c) _s.AudioDeviceId = c.Id; };
-        p.Children.Add(Columns(choices, Button("Refresh", async () =>
-        {
-            var devices = await Task.Run(AudioSource.ListDevices);
-            SetChoices(choices, devices, _s.AudioDeviceId, "Default output monitor");
-        })));
+        var devices = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 6 };
+        devices.Children.Add(choices);
+        var refresh = Button("Refresh", async () => SetChoices(choices, await Task.Run(AudioSource.ListDevices), _s.AudioDeviceId, "Default output monitor"));
+        Grid.SetColumn(refresh, 1); devices.Children.Add(refresh);
+        var apply = Button("Apply device", () => { _engine.RestartSource(1); return Task.CompletedTask; }); Grid.SetColumn(apply, 2); devices.Children.Add(apply); p.Children.Add(devices);
+        _equalizer = new EqualizerPanel(_s, _engine.Audio, compact: true); p.Children.Add(_equalizer);
+        var advanced = Panel();
         var modeLabels = new[] { "Chosen output device", "One application", "Selected game window" };
-        if (!OperatingSystem.IsWindows()) AddEnum(p, "Capture", modeLabels, modeLabels[(int)_s.AudioCaptureMode], x => _s.AudioCaptureMode = (AudioCaptureMode)Array.IndexOf(modeLabels, x));
+        if (!OperatingSystem.IsWindows())
+        {
+            AddEnum(advanced, "Capture", modeLabels, modeLabels[(int)_s.AudioCaptureMode], x => _s.AudioCaptureMode = (AudioCaptureMode)Array.IndexOf(modeLabels, x));
+            var apps = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            apps.SelectionChanged += (_, _) => { if (apps.SelectedItem is AudioApplication app) { _s.AudioProcessId = app.ProcessId; _s.AudioStreamIndex = app.Stream; } };
+            advanced.Children.Add(apps);
+            advanced.Children.Add(Button("Refresh playing applications", async () => { var list = await Task.Run(AudioRouting.Applications); var selected = _s.AudioProcessId; apps.ItemsSource = list; apps.SelectedItem = list.FirstOrDefault(a => a.ProcessId == selected); }));
+            advanced.Children.Add(Text("Application capture follows the selected playback stream. Game capture follows the window selected on Overlay. Missing target audio waits without recording other apps."));
+        }
         else if (_s.AudioCaptureMode != AudioCaptureMode.OutputMonitor)
         {
-            p.Children.Add(Text("The saved application capture mode requires Linux. Select output-device capture to use audio on Windows."));
-            p.Children.Add(Button("Use output-device capture", () => { _s.AudioCaptureMode = AudioCaptureMode.OutputMonitor; _engine.RestartSource(1); return Task.CompletedTask; }));
+            advanced.Children.Add(Text("The saved application capture mode requires Linux."));
+            advanced.Children.Add(Button("Use output-device capture", () => { _s.AudioCaptureMode = AudioCaptureMode.OutputMonitor; _engine.RestartSource(1); return Task.CompletedTask; }));
         }
-        var apps = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
-        apps.SelectionChanged += (_, _) => { if (apps.SelectedItem is AudioApplication a) { _s.AudioProcessId = a.ProcessId; _s.AudioStreamIndex = a.Stream; } };
-        if (!OperatingSystem.IsWindows()) p.Children.Add(apps);
-        if (!OperatingSystem.IsWindows()) p.Children.Add(Button("Refresh playing applications", async () =>
-        {
-            var applications = await Task.Run(AudioRouting.Applications);
-            var selected = _s.AudioProcessId;
-            apps.ItemsSource = applications;
-            apps.SelectedItem = applications.FirstOrDefault(a => a.ProcessId == selected);
-        }));
-        if (!OperatingSystem.IsWindows()) p.Children.Add(Text("Application captures only that app's selected playback stream. SelectedGame follows the game window picked on the Overlay tab. If its audio disappears, capture waits; it does not switch to all desktop audio."));
-        p.Children.Add(Button("Apply / restart audio", () => { _engine.RestartSource(1); return Task.CompletedTask; }));
-        p.Children.Add(Text("Choose bass, treble or a custom capture frequency range on the EQ tab."));
-        AddSlider(p, "Quiet floor (dB)", -90, -1, _s.AudioFloorDb, x => _s.AudioFloorDb = x, "F0");
-        AddSlider(p, "Loud ceiling (dB)", -60, 0, _s.AudioCeilDb, x => _s.AudioCeilDb = x, "F0");
-        Shape(p, _s.Audio);
-        if (OperatingSystem.IsWindows()) p.Children.Add(new Expander { Header = "Audio capture help", Content = Text("Windows captures the selected WASAPI output device. Use game-focus pausing on the Overlay tab to pause when you switch away from the game. Per-application audio isolation is available on Linux.") });
+        AddSlider(advanced, "Quiet floor (dB)", -90, -1, _s.AudioFloorDb, x => _s.AudioFloorDb = x, "F0");
+        AddSlider(advanced, "Loud ceiling (dB)", -60, 0, _s.AudioCeilDb, x => _s.AudioCeilDb = x, "F0");
+        Shape(advanced, _s.Audio); advanced.Children.Add(_equalizer.TonalControls);
+        p.Children.Add(new Expander { Header = "Advanced audio settings", Content = advanced });
         return p;
     }
     private StackPanel EventsPanel()
@@ -389,12 +405,13 @@ public sealed class MainWindow : Window
         {
             if (_sourceToggles[i].IsChecked != _engine.SettingsFor(i).Enabled) _sourceToggles[i].IsChecked = _engine.SettingsFor(i).Enabled;
             _meters[i].Value = st.Shaped[i]; _levels[i].Text = st.Shaped[i].ToString("P0"); _status[i].Text = st.SourceStatus[i];
+            _compactMeters[i].Value = st.Shaped[i]; _compactLevels[i].Text = st.Shaped[i].ToString("P0");
             _dots[i].Background = st.SourceRunning[i] ? Classic.Good : _engine.SettingsFor(i).Enabled ? Classic.Warn : Classic.Line;
             ToolTip.SetTip(_dots[i], st.SourceStatus[i]);
         }
         _equalizer.Refresh();
         _overlayToggle.IsChecked = _s.OverlayEnabled; _focusToggle.IsChecked = _s.PauseWhenGameUnfocused;
-        if (_ticks % 5 == 0) _plugins.Refresh();
+        if (_ticks % 5 == 0) { _plugins.Refresh(); foreach (var gameTab in _gameTabs.Values) gameTab.Panel.Refresh(); }
         _eventEndpoint.Text = _engine.Events.Endpoint;
         _gameStatus.Text = _engine.Game.State.Status + (_engine.Game.State.Window is { } game ? " · " + game.Title : "");
         var focus = _engine.Game.State;
@@ -469,8 +486,29 @@ public sealed class MainWindow : Window
     }
 
     private sealed record Choice(string Id, string Label) { public override string ToString() => Label; }
+    private void PluginChanged(string id) => Dispatcher.UIThread.Post(() => { if (!_closing) { SyncGameTabs(); _plugins.Refresh(); } });
+    private void SyncGameTabs()
+    {
+        var installed = _engine.Plugins.Installed;
+        var selectedId = _gameTabs.FirstOrDefault(p => p.Value.Tab == _tabs.SelectedItem).Key;
+        foreach (var id in _gameTabs.Keys.Where(id => !installed.Any(p => p.Profile.Id == id)).ToArray()) { _tabs.Items.Remove(_gameTabs[id].Tab); _gameTabs.Remove(id); }
+        foreach (var plugin in installed)
+        {
+            var stamp = PluginManager.Serialize(plugin.Profile);
+            if (_gameTabs.TryGetValue(plugin.Profile.Id, out var current) && current.Stamp == stamp) continue;
+            if (current.Tab != null) _tabs.Items.Remove(current.Tab);
+            var panel = new GamePluginPanel(_engine, plugin.Profile);
+            var tab = new TabItem { Header = PluginManager.TabTitle(plugin.Profile), Content = Scroll(panel), Tag = plugin.Profile.Id };
+            ToolTip.SetTip(tab, plugin.Profile.Name);
+            var position = _tabs.Items.Cast<TabItem>().ToList().FindIndex(t => t.Header?.ToString() == "Plugins");
+            _tabs.Items.Insert(position, tab); _gameTabs[plugin.Profile.Id] = (tab, panel, stamp);
+        }
+        if (selectedId != null && _gameTabs.TryGetValue(selectedId, out var selected)) _tabs.SelectedItem = selected.Tab;
+        if (_tabs.SelectedItem == null) _tabs.SelectedItem = _tabs.Items.Cast<TabItem>().First(t => t.Header?.ToString() == "Plugins");
+    }
     private void Navigate(string page)
     {
+        if (page.StartsWith("plugin:", StringComparison.Ordinal)) { SyncGameTabs(); if (_gameTabs.TryGetValue(page[7..], out var game)) _tabs.SelectedItem = game.Tab; return; }
         if (page == "Connection") { _host.BringIntoView(); _host.Focus(); return; }
         if (page == "Output") { _output.BringIntoView(); return; }
         _tabs.SelectedItem = _tabs.Items.Cast<TabItem>().FirstOrDefault(t => t.Header?.ToString() == page);

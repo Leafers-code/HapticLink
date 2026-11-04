@@ -7,13 +7,15 @@ namespace HapticLink.Core;
 
 public sealed class PluginProfile
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Version { get; set; } = "1.0.0";
     public string Description { get; set; } = "";
     public string Kind { get; set; } = "http-events";
     public string Setup { get; set; } = "";
+    public string TabName { get; set; } = "";
+    public string Companion { get; set; } = "";
     public List<GameEventRule> Rules { get; set; } = new();
 }
 
@@ -37,11 +39,22 @@ public sealed class PluginManager
     {
         _settings = settings; _directory = directory ?? Path.Combine(Settings.Dir, "plugins");
         _settings.PluginEnabled ??= new();
+        _settings.PluginGains ??= new(); _settings.PluginApplications ??= new();
         Reload();
     }
     public InstalledPlugin[] Installed { get { lock (_gate) return _installed.Values.OrderBy(p => p.Name).Select(p => new InstalledPlugin(Clone(p), Enabled(p.Id))).ToArray(); } }
     public string[] Errors { get { lock (_gate) return _errors.ToArray(); } }
     private bool Enabled(string id) => _settings.PluginEnabled.TryGetValue(id, out var value) && value;
+    public double Gain(string id) => _settings.PluginGains.TryGetValue(id, out var gain) && double.IsFinite(gain) ? Math.Clamp(gain, 0, 2) : 1;
+    public void SetGain(string id, double gain) => _settings.PluginGains = new(_settings.PluginGains) { [id] = double.IsFinite(gain) ? Math.Clamp(gain, 0, 2) : 1 };
+    public static string TabTitle(PluginProfile p) => p.Id == "cs2-events" ? "CS2" : p.Id == "overwatch2" ? "Overwatch 2" : !string.IsNullOrWhiteSpace(p.TabName) ? p.TabName : p.Name.Length > 18 ? p.Name[..18] + "…" : p.Name;
+    public void EnsureGameDefaults()
+    {
+        if (_settings.GamePluginsInitialized) return;
+        foreach (var profile in Catalog().Where(p => p.Id is "cs2-events" or "overwatch2"))
+            if (!Installed.Any(p => p.Profile.Id == profile.Id)) Install(Serialize(profile));
+        _settings.GamePluginsInitialized = true; _settings.Save();
+    }
     public PluginProfile GetEnabled(string id, string kind = null)
     {
         lock (_gate) return _installed.TryGetValue(id, out var p) && Enabled(id) && (kind == null || kind == p.Kind) ? Clone(p) : null;
@@ -114,7 +127,8 @@ public sealed class PluginManager
     {
         if (Encoding.UTF8.GetByteCount(json) > 131072) throw new InvalidDataException("Profile exceeds 128 KiB.");
         var p = JsonSerializer.Deserialize<PluginProfile>(json, Json) ?? throw new InvalidDataException("Empty profile.");
-        if (p.SchemaVersion != 1) throw new InvalidDataException("Unsupported profile schema version.");
+        if (p.SchemaVersion is not (1 or 2)) throw new InvalidDataException("Unsupported profile schema version.");
+        if (p.TabName == null || p.TabName.Length > 24 || p.Companion is not ("" or "overstim")) throw new InvalidDataException("Invalid game tab or companion.");
         if (!Regex.IsMatch(p.Id ?? "", "^[a-z0-9][a-z0-9-]{2,63}$") || Regex.IsMatch(p.Id, "^(con|prn|aux|nul|com[1-9]|lpt[1-9])$")) throw new InvalidDataException("Use a 3–64 character lowercase ID with letters, digits and hyphens.");
         if (string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 100 || !Version.TryParse(p.Version, out _)) throw new InvalidDataException("A name and numeric version are required.");
         if (p.Kind is not ("http-events" or "cs2" or "buttplug")) throw new InvalidDataException("Supported profile kinds: http-events, cs2, buttplug.");
@@ -133,8 +147,9 @@ public sealed class PluginManager
     }
     public static PluginProfile[] Catalog() => new[]
     {
+        new PluginProfile { Id = "cs2-events", Name = "Counter-Strike 2", TabName = "CS2", Kind = "cs2", Description = "Ready-made kill, damage, death, shot and round-win effects via Game State Integration.", Setup = "Install the game config into CS2's game/csgo/cfg folder, then restart the game. Enable this plugin to receive events.", Rules = new Settings().EventRules },
+        new PluginProfile { Id = "overwatch2", Name = "Overwatch 2", TabName = "Overwatch 2", Kind = "buttplug", Companion = "overstim", Description = "Overwatch event haptics through the OverStim screen-detection companion.", Setup = "Get OverStim from its official project, close it, and choose Configure OverStim below. HapticLink sets its server address automatically. Launch OverStim, select your hero and start its detector. The game detector and hero-specific triggers run in OverStim." },
         new PluginProfile { Id = "intiface-vibration", Name = "Intiface / Buttplug integration", Kind = "buttplug", Description = "Receive vibration from compatible apps and game mods through a dedicated profile endpoint.", Setup = "Set your integration's server URL to the address below. Connect, scan and select HapticLink virtual vibration. The game mod or app must be installed separately." },
-        new PluginProfile { Id = "cs2-events", Name = "Counter-Strike 2 events", Kind = "cs2", Description = "Kills, damage, death, shots and round wins from CS2 Game State Integration.", Setup = "Export the game config below into CS2's game/csgo/cfg folder. Restart CS2 after installing the file. Keep this profile enabled while playing.", Rules = new Settings().EventRules },
         new PluginProfile { Id = "http-game-events", Name = "Custom game events", Kind = "http-events", Description = "Map named events from a game adapter or script to bounded haptic pulses.", Setup = "POST JSON such as {\"event\":\"quest_complete\"} to the address below. Export this profile to edit event names, levels, durations and cooldowns, then import it again.", Rules = new() { new() { Event = "quest_complete", Level = .6, DurationMs = 500 }, new() { Event = "damage", Level = .4, DurationMs = 250 } } }
     };
 }

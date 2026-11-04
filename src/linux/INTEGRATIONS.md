@@ -2,9 +2,9 @@
 
 HapticLink 1.2 adds an input bridge for integrations that use the Buttplug protocol, a direct HTTP game-event input, Counter-Strike 2 GSI, application audio selection, game-window focus, a transparent desktop overlay and a ten-band haptics EQ. The updated app also builds for Windows with WASAPI output capture and ViGEm/XInput rumble; per-application audio isolation is Linux-only. The original Windows WPF source remains separate and unchanged. See [Windows setup](README-Windows.md).
 
-## Plugin manager
+## Game plugin tabs
 
-Use **Plugins → Available** to install a CS2, Intiface/Buttplug or HTTP-event profile. Installed profiles have dedicated endpoints, editable mappings and enable/disable controls. Existing root endpoints remain available. See [PLUGINS.md](PLUGINS.md) for setup, imports and profile format.
+CS2 and Overwatch 2 have preconfigured, disabled tabs on first launch. Plugins adds/removes game tabs and imports custom integrations. CS2 installs its GSI config and edits effects directly. Overwatch connects through the separate OverStim screen-detection companion; its tab configures the connection and launches a selected install. See [PLUGINS.md](PLUGINS.md).
 
 ## Using apps from the Intiface ecosystem
 
@@ -73,7 +73,7 @@ sudo dnf install wmctrl xprop libXext
 sudo pacman -S wmctrl xorg-xprop libxext
 ```
 
-The overlay is a separate borderless, transparent, always-on-top window. It shows the selected game, arm/pause/output state, all five source meters and recent event text. Default mode passes mouse input through on Windows/X11. Interactive mode exposes Arm/Panic controls, an EQ button with live equalizer controls, and a draggable header. EQ settings stay synchronized with the main EQ tab. Its offset and opacity are saved. With focus-only display selected, it hides outside the game; interactive mode keeps it visible for adjustment.
+The overlay is a separate borderless, transparent, always-on-top window. It shows the selected game, arm/pause/output state, all five source meters and recent event text. Default mode passes mouse input through on Windows/X11. Interactive mode exposes Arm/Panic controls, an EQ button with live equalizer controls, and a draggable header. EQ settings stay synchronized with the main Audio tab. Its offset and opacity are saved. With focus-only display selected, it hides outside the game; interactive mode keeps it visible for adjustment.
 
 It works with windowed and borderless games when the window manager permits it. It is not an injected Discord/Steam overlay and may be covered by exclusive fullscreen. Native Wayland games and compositor-specific restrictions can prevent discovery, positioning, click-through or always-on-top behavior. The supplied Avalonia 11 build uses XWayland. Unknown focus with focus pausing enabled silences output.
 
@@ -87,11 +87,11 @@ HapticLink --panic
 
 ## Haptics EQ
 
-The **EQ** tab selects the frequencies used to generate haptics. Choose **Full range**, **Bass** (20–180 Hz), **Mids** (180–2500 Hz) or **Treble** (2500–20000 Hz), or set an exact custom range using **From / To (Hz)**. You can also drag the blue edges on the spectrum. The highlighted region is the selected capture band; incoming audio outside it is filtered out with a gradual roll-off at the cutoffs. Changes apply live without restarting capture and are saved.
+The **Audio** tab selects the frequencies used to generate haptics. Choose **Full range**, **Bass** (20–180 Hz), **Mids** (180–2500 Hz) or **Treble** (2500–20000 Hz), or set an exact custom range using **From / To (Hz)**. You can also drag the blue edges on the spectrum. The highlighted region is the selected capture band; incoming audio outside it is filtered out with a gradual roll-off at the cutoffs. Changes apply live without restarting capture and are saved.
 
 For example, set **80–140 Hz** to focus on low bass pulses while rejecting most voices and higher-frequency effects. The selection works on the chosen output device or Linux application/game stream. It changes the audio used for haptics, without changing speaker/headphone playback.
 
-**Advanced tonal shaping** retains the optional ten-band ±12 dB EQ and preamp after frequency selection. Turning tonal shaping off leaves the capture range active. Existing Bass/Treble settings are preserved when upgrading. The overlay's EQ button exposes the same range controls.
+**Advanced audio settings** retains the optional ten-band ±12 dB EQ and preamp after frequency selection. Turning tonal shaping off leaves the capture range active. Existing Bass/Treble settings are preserved when upgrading. The overlay's EQ button exposes the same range controls.
 
 Filter coefficients follow the [RBJ audio EQ cookbook](https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html).
 
