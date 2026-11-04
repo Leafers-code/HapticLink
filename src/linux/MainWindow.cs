@@ -18,8 +18,11 @@ public sealed class MainWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly TextBlock _connection = Text("Enter your phone's Game Mode IP address."), _output = Text("0%"), _state = Text("DISARMED");
-    private readonly TextBlock[] _status = new TextBlock[4];
-    private readonly ProgressBar[] _meters = new ProgressBar[4];
+    private readonly TextBlock[] _status = new TextBlock[5];
+    private readonly ProgressBar[] _meters = new ProgressBar[5];
+    private EqualizerPanel _equalizer;
+    private OverlayWindow _overlay;
+    private readonly TextBlock _eventEndpoint = Text(""), _eventHistory = Text(""), _gameStatus = Text("No game selected"), _overlayStatus = Text("");
     private readonly ProgressBar _outputMeter = new() { Minimum = 0, Maximum = 100, Height = 10 };
     private readonly Button _arm = new() { Content = "ARM OUTPUT", HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBox _log = new() { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 380 };
@@ -35,7 +38,7 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "HapticLink · Linux"; Width = 1120; Height = 800; MinWidth = 860; MinHeight = 620;
+        Title = "HapticLink · " + (OperatingSystem.IsWindows() ? "Windows" : "Linux") + " 1.2 preview"; Width = 1280; Height = 860; MinWidth = 1100; MinHeight = 620;
         Background = new SolidColorBrush(Color.Parse("#11151C"));
         _engine = new Engine(_s);
         _host = new TextBox { Text = _s.Host, Watermark = "192.168.1.42" };
@@ -65,6 +68,8 @@ public sealed class MainWindow : Window
         tabs.Items.Add(new TabItem { Header = "Manual", Content = Scroll(ManualPanel()) });
         tabs.Items.Add(new TabItem { Header = "Audio", Content = Scroll(AudioPanel()) });
         tabs.Items.Add(new TabItem { Header = "Controller", Content = Scroll(RumblePanel()) });
+        tabs.Items.Add(new TabItem { Header = "Events", Content = Scroll(EventsPanel()) });
+        tabs.Items.Add(new TabItem { Header = "Overlay", Content = Scroll(OverlayPanel()) });
         _oscTab.Content = Scroll(OscPanel()); tabs.Items.Add(_oscTab);
         tabs.Items.Add(new TabItem { Header = "Settings", Content = Scroll(SettingsPanel()) });
         tabs.Items.Add(new TabItem { Header = "Log", Content = Scroll(_log) });
@@ -83,7 +88,7 @@ public sealed class MainWindow : Window
             if (_closed) return;
             e.Cancel = true;
             if (_closing) return;
-            _closing = true; _timer.Stop(); _lifetime.Cancel(); _engine.Panic(); _s.Save();
+            _closing = true; _timer.Stop(); _lifetime.Cancel(); _overlay?.Close(); _engine.Panic(); _s.Save();
             await _engine.ShutdownAsync();
             Log.Line -= OnLog; _engine.Dispose(); _closed = true; Close();
         };
@@ -143,12 +148,26 @@ public sealed class MainWindow : Window
     private StackPanel AudioPanel()
     {
         var p = SourcePanel(1, "GAME AUDIO", "Capture your output monitor through PipeWire or PulseAudio.");
+        if (OperatingSystem.IsWindows()) p.Children.Add(Text("Windows uses WASAPI output-device capture. The EQ, overlay and game-focus pause work here; per-application audio isolation currently requires Linux."));
         var choices = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         choices.Items.Add(new Choice("", "Default output monitor"));
         if (_s.AudioDeviceId.Length > 0) choices.Items.Add(new Choice(_s.AudioDeviceId, _s.AudioDeviceId));
         choices.SelectedIndex = choices.Items.Count - 1;
         choices.SelectionChanged += (_, _) => { if (choices.SelectedItem is Choice c) _s.AudioDeviceId = c.Id; };
         p.Children.Add(choices);
+        var modeLabels = new[] { "Chosen output device", "One application", "Selected game window" };
+        AddEnum(p, "Capture", modeLabels, modeLabels[(int)_s.AudioCaptureMode], x => _s.AudioCaptureMode = (AudioCaptureMode)Array.IndexOf(modeLabels, x));
+        var apps = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        apps.SelectionChanged += (_, _) => { if (apps.SelectedItem is AudioApplication a) { _s.AudioProcessId = a.ProcessId; _s.AudioStreamIndex = a.Stream; } };
+        p.Children.Add(apps);
+        p.Children.Add(Button("Refresh playing applications", async () =>
+        {
+            var applications = await Task.Run(AudioRouting.Applications);
+            var selected = _s.AudioProcessId;
+            apps.ItemsSource = applications;
+            apps.SelectedItem = applications.FirstOrDefault(a => a.ProcessId == selected);
+        }));
+        p.Children.Add(Text("Application captures only that app's selected playback stream. SelectedGame follows the game window picked on the Overlay tab. If its audio disappears, capture waits; it does not switch to all desktop audio."));
         p.Children.Add(Button("Refresh output monitors", async () =>
         {
             var devices = await Task.Run(AudioSource.ListDevices);
@@ -158,7 +177,68 @@ public sealed class MainWindow : Window
         AddEnum(p, "Band", _s.AudioBand, x => _s.AudioBand = x);
         AddSlider(p, "Quiet floor (dB)", -90, -1, _s.AudioFloorDb, x => _s.AudioFloorDb = x, "F0");
         AddSlider(p, "Loud ceiling (dB)", -60, 0, _s.AudioCeilDb, x => _s.AudioCeilDb = x, "F0");
+        _equalizer = new EqualizerPanel(_s, _engine.Audio); p.Children.Add(_equalizer);
         Shape(p, _s.Audio); return p;
+    }
+    private StackPanel EventsPanel()
+    {
+        var p = SourcePanel(4, "INTIFACE & GAME EVENTS", "Point an Intiface/Buttplug integration at this local server and select HapticLink virtual vibration. Events enter the mixer; output still needs arming.");
+        p.Children.Add(_eventEndpoint);
+        AddNumber(p, "Local server port", 1024, 65535, _s.IntegrationPort, x => _s.IntegrationPort = x);
+        AddNumber(p, "Client ping timeout (ms)", 1000, 30000, _s.IntegrationTimeoutMs, x => _s.IntegrationTimeoutMs = x);
+        p.Children.Add(Button("Apply / restart bridge", () => { _engine.RestartSource(4); return Task.CompletedTask; }));
+        p.Children.Add(Text("Receives vibration commands from Buttplug protocol v2, v3 and v4.0 clients. Configure the integration's server URL; do not point it at Intiface Central. Position, rotation and sensor features are not advertised. Windows-only integrations still need their supported OS."));
+        p.Children.Add(Heading("GAME EVENT RULES"));
+        var rules = Panel(); p.Children.Add(rules);
+        void AddRule(GameEventRule rule)
+        {
+            var box = Panel(); box.Children.Add(Check(rule.Event, rule.Enabled, x => rule.Enabled = x));
+            AddSlider(box, "Intensity", 0, 1, rule.Level, x => rule.Level = x, "P0");
+            AddNumber(box, "Duration (ms)", 0, 5000, rule.DurationMs, x => rule.DurationMs = x);
+            AddNumber(box, "Cooldown (ms)", 0, 10000, rule.CooldownMs, x => rule.CooldownMs = x);
+            box.Children.Add(Button("Preview " + rule.Event, () => { _engine.Events.Trigger(rule.Event); return Task.CompletedTask; }));
+            rules.Children.Add(new Expander { Header = rule.Event, Content = box });
+        }
+        _s.EventRules ??= new(); foreach (var rule in _s.EventRules) AddRule(rule);
+        var custom = new TextBox { Watermark = "Custom event name, e.g. quest_complete" }; p.Children.Add(custom);
+        p.Children.Add(Button("Add event rule", () =>
+        {
+            var name = custom.Text?.Trim();
+            if (string.IsNullOrEmpty(name) || name.Length > 80 || _s.EventRules.Count >= 64 || _s.EventRules.Any(r => r.Event == name)) return Task.CompletedTask;
+            var rule = new GameEventRule { Event = name }; _s.EventRules = _s.EventRules.Append(rule).ToList(); AddRule(rule); custom.Text = "";
+            return Task.CompletedTask;
+        }));
+        p.Children.Add(Text("HTTP POST /event accepts {\"event\":\"kill\"}, or an explicit level (0..1) and durationMs (0..5000). CS2 can send Game State Integration data to /cs2. A ready-to-copy CS2 configuration is included in integrations/."));
+        p.Children.Add(Heading("RECENT EVENTS")); p.Children.Add(_eventHistory);
+        Shape(p, _s.Events); return p;
+    }
+    private StackPanel OverlayPanel()
+    {
+        var p = Panel(); p.Children.Add(Heading("GAME WINDOW & OVERLAY"));
+        var windows = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        windows.SelectionChanged += (_, _) =>
+        {
+            if (windows.SelectedItem is GameWindow window) { _s.GameWindowId = window.Id; _s.GameProcessId = window.ProcessId; }
+        };
+        p.Children.Add(windows);
+        p.Children.Add(Button("Refresh game windows", async () =>
+        {
+            var list = await Task.Run(GameFocus.ListWindows); windows.ItemsSource = list;
+            windows.SelectedItem = list.FirstOrDefault(w => w.Id == GameFocus.NormalizeId(_s.GameWindowId));
+        }));
+        p.Children.Add(Button("Clear game selection", () => { _s.GameWindowId = ""; _s.GameProcessId = 0; windows.SelectedItem = null; return Task.CompletedTask; }));
+        p.Children.Add(_gameStatus);
+        p.Children.Add(Check("Pause all output when the selected game loses focus", _s.PauseWhenGameUnfocused, x => _s.PauseWhenGameUnfocused = x));
+        p.Children.Add(Check("Show overlay", _s.OverlayEnabled, x => _s.OverlayEnabled = x));
+        p.Children.Add(Check("Interactive overlay — drag header and use controls", _s.OverlayInteractive, x => _s.OverlayInteractive = x));
+        p.Children.Add(Check("Show only while the selected game is focused", _s.OverlayOnlyWhenGameFocused, x => _s.OverlayOnlyWhenGameFocused = x));
+        AddSlider(p, "Overlay opacity", .2, 1, _s.OverlayOpacity, x => _s.OverlayOpacity = x, "P0");
+        AddNumber(p, "Horizontal offset (pixels)", -2000, 8000, _s.OverlayOffsetX, x => _s.OverlayOffsetX = x);
+        AddNumber(p, "Vertical offset (pixels)", -2000, 8000, _s.OverlayOffsetY, x => _s.OverlayOffsetY = x);
+        p.Children.Add(_overlayStatus);
+        p.Children.Add(Text("The overlay is a separate transparent, topmost window for windowed/borderless games. Default mode passes clicks through to the game. Interactive mode lets you drag it and use Arm/Panic. Exclusive fullscreen may cover it. X11/XWayland window discovery requires wmctrl and xprop; native Wayland windows may not be discoverable."));
+        p.Children.Add(Text("Global desktop shortcuts: HapticLink --toggle-overlay, HapticLink --overlay-interact, and HapticLink --panic. If focus cannot be verified with focus pausing enabled, output pauses."));
+        return p;
     }
     private StackPanel RumblePanel()
     {
@@ -177,6 +257,7 @@ public sealed class MainWindow : Window
         p.Children.Add(Check("Grab physical gamepad exclusively", _s.RumbleGrab, x => _s.RumbleGrab = x));
         p.Children.Add(Button("Apply / restart controller", () => { _engine.RestartSource(0); return Task.CompletedTask; }));
         p.Children.Add(Text("Requires python3-evdev, /dev/uinput access, and access to the selected gamepad. Select HapticLink in Steam's controller order before launching the game. See README-Linux.md for permissions and Steam Input details."));
+        if (OperatingSystem.IsWindows()) p.Children.Add(Text("Windows uses the recovered ViGEm/XInput bridge. Install ViGEmBus if needed and use HidHide to hide the physical pad from games. The exclusive-grab checkbox above is Linux-only."));
         AddSlider(p, "Heavy motor weight", 0, 2, _s.RumbleLargeWeight, x => _s.RumbleLargeWeight = x);
         AddSlider(p, "Light motor weight", 0, 2, _s.RumbleSmallWeight, x => _s.RumbleSmallWeight = x);
         Shape(p, _s.Rumble); return p;
@@ -234,9 +315,22 @@ public sealed class MainWindow : Window
     {
         if (_latest is not { } st) return;
         _output.Text = st.Output.ToString("P0"); _outputMeter.Value = st.Output * 100;
-        _state.Text = st.Panicked ? "PANIC STOPPED" : st.SafetyTripped ? "AUTO-STOP REACHED" : st.Armed ? "ARMED" : "DISARMED";
+        _state.Text = st.Panicked ? "PANIC STOPPED" : st.FocusPaused ? "PAUSED · GAME UNFOCUSED" : st.SafetyTripped ? "AUTO-STOP REACHED" : st.Armed ? "ARMED" : "DISARMED";
         _arm.Content = st.Armed ? "DISARM OUTPUT" : "ARM OUTPUT";
-        for (int i = 0; i < 4; i++) { _meters[i].Value = st.Shaped[i] * 100; _status[i].Text = st.SourceStatus[i]; }
+        for (int i = 0; i < 5; i++) { _meters[i].Value = st.Shaped[i] * 100; _status[i].Text = st.SourceStatus[i]; }
+        _equalizer.Refresh();
+        _eventEndpoint.Text = _engine.Events.Endpoint;
+        _gameStatus.Text = _engine.Game.State.Status + (_engine.Game.State.Window is { } game ? " · " + game.Title : "");
+        var focus = _engine.Game.State;
+        var showOverlay = _s.OverlayEnabled && (_s.OverlayInteractive || !_s.OverlayOnlyWhenGameFocused || string.IsNullOrEmpty(_s.GameWindowId) || focus.Available && focus.Focused);
+        if (showOverlay)
+        {
+            _overlay ??= new OverlayWindow(_s, _engine);
+            _overlay.Refresh(st, focus);
+            if (!_overlay.IsVisible && _overlay.InputAvailable) _overlay.Show();
+            _overlayStatus.Text = _overlay.InputStatus;
+        }
+        else _overlay?.Hide();
         var id = _engine.Osc.AvatarId;
         if (id != _lastAvatar)
         {
@@ -246,7 +340,7 @@ public sealed class MainWindow : Window
         _avatar.Text = _engine.Osc.AvatarName ?? id ?? "No avatar detected";
         _routing.Text = _engine.RoutingSummary;
         if (++_ticks % 10 != 0) return;
-        _s.Save(); RefreshToys(); RefreshParameters();
+        _s.Save(); RefreshToys(); RefreshParameters(); _eventHistory.Text = string.Join(Environment.NewLine, _engine.Events.EventHistory.Reverse());
     }
     private void RefreshToys()
     {
@@ -288,6 +382,8 @@ public sealed class MainWindow : Window
                 {
                     if (command == "panic") _engine.Panic();
                     else if (command == "arm") ToggleArm();
+                    else if (command == "overlay") _s.OverlayEnabled = !_s.OverlayEnabled;
+                    else if (command == "overlay-interact") _s.OverlayInteractive = !_s.OverlayInteractive;
                     else { Show(); Activate(); }
                 });
             }
@@ -306,7 +402,7 @@ public sealed class MainWindow : Window
         combo.ItemsSource = choices;
         combo.SelectedItem = choices.FirstOrDefault(c => c.Id == selected) ?? choices[0];
     }
-    private static TextBlock Text(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightGray };
+    private static TextBlock Text(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightGray, MaxWidth = 700, HorizontalAlignment = HorizontalAlignment.Left };
     private static TextBlock Heading(string text) => new() { Text = text, FontWeight = FontWeight.Bold, FontSize = 15, Margin = new Thickness(0, 16, 0, 4) };
     private static StackPanel Panel() => new() { Spacing = 10 };
     private static ScrollViewer Scroll(Control content) => new() { Content = content, Padding = new Thickness(16), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };

@@ -1,12 +1,14 @@
 # HapticLink for Linux
 
+**Version 1.2 preview:** [Intiface/game events, application audio, overlay and ten-band haptics EQ](INTEGRATIONS.md). The built-in Intiface-compatible receiver feeds the existing Lovense output; it is not an Intiface Central device backend. These features are in the Linux port, not the recovered Windows WPF source.
+
 This port was made from the original HapticLink C# source recovered from the October 9, 2026 C-drive backup. The original Windows source is preserved separately. The Linux app uses Avalonia, PulseAudio/PipeWire monitor capture, and an optional Python evdev/uinput controller bridge. The existing Lovense LAN client, patterns, OSC/SPS processing, per-avatar settings and per-motor routing are retained.
 
 ## Run the packaged app
 
 The `linux-x64` archive includes .NET; you do not need to install the .NET SDK or use Wine. It targets 64-bit Intel/AMD Linux with glibc and a graphical desktop. On a Wayland desktop, install/enable XWayland.
 
-1. Extract `HapticLink-linux-x64.tar.gz` into a permanent folder.
+1. Extract the Linux x64 archive from the repository's downloads folder into a permanent folder.
 2. Install desktop and audio dependencies. For Debian/Ubuntu:
 
    ```sh

@@ -5,14 +5,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <AssemblyName>HapticLink</AssemblyName>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
+  <PropertyGroup Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">
+    <DefineConstants>$(DefineConstants);WINDOWS_BACKEND</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">
+    <PackageReference Include="NAudio.Wasapi" Version="2.3.0" />
+    <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
+  </ItemGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <Compile Remove="Tests/**/*.cs" />
     <None Update="linux/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="licenses/**/*" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="README-Linux.md;VALIDATION.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="integrations/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="README-Linux.md;README-Windows.md;INTEGRATIONS.md;VALIDATION.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

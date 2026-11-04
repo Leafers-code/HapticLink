@@ -4,15 +4,21 @@ A desktop app that maps game audio, controller rumble, VRChat OSC and manual pat
 
 This repository includes a Linux port and the recovered original Windows application.
 
+The updated 1.2 app also has a [Windows build](src/linux/README-Windows.md), with WASAPI output capture and ViGEm/XInput rumble. Per-application audio isolation is currently Linux-only; the overlay, EQ, integration bridge and game-focus pausing are available in the new Windows app.
+
 ![HapticLink Linux interface](docs/linux-preview.png)
 
 ## Linux preview
 
-Download `HapticLink-linux-x64.tar.gz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
+**1.2 preview adds:** an Intiface/Buttplug-compatible vibration receiver (v2/v3/v4), configurable game-event rules and CS2 GSI, per-application/game audio capture, game-focus pausing, a transparent overlay with click-through/interactive modes, and a ten-band haptics EQ. Start with the [integration and overlay guide](src/linux/INTEGRATIONS.md).
+
+Download `HapticLink-linux-x64-1.2.0-preview.tar.xz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
+
+![HapticLink overlay preview](docs/overlay-preview.png)
 
 The Linux version uses Avalonia for the interface, PulseAudio or PipeWire's PulseAudio server for output-monitor audio capture, and an optional Python evdev/uinput bridge for controller rumble. Existing patterns, OSC/SPS processing, per-avatar settings and per-motor routing are retained. Configure a desktop shortcut to `HapticLink --panic` for a global stop command.
 
-**Preview status:** release compilation, 28 C# checks and nine Python tests passed on Windows. The Linux executable has not yet been launched on Linux. Native audio capture, uinput permissions, controller behavior and Steam/Proton routing still need testing on a Linux machine. See the [validation report](src/linux/VALIDATION.md) for exact coverage.
+**Preview status:** release compilation, 69 C# checks (including the official Buttplug client) and nine Python tests passed on Windows. The Windows app has been opened and its WASAPI meter verified. The Linux executable has not yet been launched on Linux; native audio isolation, game focus, overlay click-through, uinput and Steam/Proton routing still need Linux desktop testing. See the [validation report](src/linux/VALIDATION.md).
 
 ## Source layout
 

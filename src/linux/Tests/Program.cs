@@ -15,7 +15,7 @@ using HapticLink.Core;
 using HapticLink.Sources;
 using HapticLink.Toy;
 
-internal static class Tests
+internal static partial class Tests
 {
     private static int _passed;
     private static void Check(bool condition, string name)
@@ -35,6 +35,11 @@ internal static class Tests
         await TestOsc();
         TestAudio();
         TestConfig(s);
+        await TestIntegrations();
+        TestEqualizerAndRouting();
+        TestPcmNormalization();
+        await TestFocusGate();
+        await TestEventStopGate();
         // All GUI work stays on one thread; this does not open native windows or use devices.
         RunUi(home);
         Console.WriteLine($"{_passed} checks passed.");
@@ -136,7 +141,7 @@ internal static class Tests
         var window = new MainWindow(); window.Show();
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-        Check(tabs.Items.Count == 6, "all six UI tabs constructed");
+        Check(tabs.Items.Count == 8, "all eight UI tabs constructed");
         foreach (TabItem tab in tabs.Items)
         {
             tabs.SelectedItem = tab;
@@ -145,6 +150,12 @@ internal static class Tests
             using var image = window.CaptureRenderedFrame();
             Check(image != null && image.PixelSize.Width > 800, "render tab: " + tab.Header);
             image.Save(Path.Combine(home, "ui-" + tab.Header.ToString().Replace(' ', '-') + ".png"));
+            if (tab.Header.ToString() == "Audio")
+            {
+                var eq = (EqualizerPanel)typeof(MainWindow).GetField("_equalizer", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
+                eq.BringIntoView(); Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var detail = window.CaptureRenderedFrame(); detail.Save(Path.Combine(home, "ui-Equalizer.png"));
+            }
         }
         // Rebuild after avatar changes: repeated controls must not retain an old parent.
         var oscPanel = typeof(MainWindow).GetMethod("OscPanel", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -155,6 +166,21 @@ internal static class Tests
         var scratch = new ComboBox(); scratch.Items.Add("initial");
         setChoices.Invoke(null, new object[] { scratch, new List<(string, string)> { ("test", "Device") }, "test", "Default" });
         Check(scratch.SelectedIndex == 1, "device refresh replaces initial items and retains selection");
+        using (var overlayEngine = new Engine(new Settings()))
+        {
+            var overlay = new OverlayWindow(new Settings { OverlayInteractive = true }, overlayEngine);
+            overlay.Show(); overlay.Refresh(new EngineState(), new FocusState(false, false, null, "Preview game"));
+            Dispatcher.UIThread.RunJobs(); overlay.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            using var overlayImage = overlay.CaptureRenderedFrame();
+            Check(overlayImage != null && overlayImage.PixelSize.Width >= 350, "overlay renders with five source meters and controls");
+            overlayImage.Save(Path.Combine(home, "ui-Overlay-preview.png"));
+            var eqButton = overlay.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "EQ");
+            eqButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs(); overlay.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Check(overlay.Height > 500, "interactive overlay expands live EQ controls");
+            using var overlayEq = overlay.CaptureRenderedFrame(); overlayEq.Save(Path.Combine(home, "ui-Overlay-EQ.png"));
+            overlay.Close();
+        }
         window.Close();
         for (int i = 0; i < 30 && window.IsVisible; i++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
         Check(!window.IsVisible, "GUI shutdown completes");

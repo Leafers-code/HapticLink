@@ -1,0 +1,3 @@
+d61ca6879783cccfff158dae38bc039cb38fb4211082cb2da281134eb13092ba  HapticLink-linux-x64-1.2.0-preview.tar.xz
+c58a131a662a53d1cae6a5db54654ff0d39aecffd7542063648658ff144166af  HapticLink-win-x64-1.2.0-preview.7z
+4816f47d653b3a6b306e1f0c1b16a94ce78f9f4ece0c63eac3f613e501f9a20f  HapticLink-source-1.2.0-preview.zip

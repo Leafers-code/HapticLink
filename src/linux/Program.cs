@@ -18,14 +18,14 @@ internal static class Program
     public static int Main(string[] args)
     {
         using var singleton = new Mutex(true, PipeName, out var first);
-        if (!first || args.Contains("--panic") || args.Contains("--toggle-arm"))
+        if (!first || args.Contains("--panic") || args.Contains("--toggle-arm") || args.Contains("--toggle-overlay") || args.Contains("--overlay-interact"))
         {
             try
             {
                 using var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
                 pipe.Connect(2000);
                 using var writer = new StreamWriter(pipe) { AutoFlush = true };
-                writer.WriteLine(args.Contains("--panic") ? "panic" : args.Contains("--toggle-arm") ? "arm" : "show");
+                writer.WriteLine(args.Contains("--panic") ? "panic" : args.Contains("--toggle-arm") ? "arm" : args.Contains("--toggle-overlay") ? "overlay" : args.Contains("--overlay-interact") ? "overlay-interact" : "show");
                 return 0;
             }
             catch { Console.Error.WriteLine("No running HapticLink instance for this user/config folder."); return 1; }

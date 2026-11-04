@@ -8,5 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="../HapticLink.csproj" />
     <PackageReference Include="Avalonia.Headless" Version="11.3.22" />
+    <PackageReference Include="Buttplug" Version="5.0.1" />
   </ItemGroup>
 </Project>

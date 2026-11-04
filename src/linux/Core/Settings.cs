@@ -9,6 +9,16 @@ namespace HapticLink.Core
     public enum MixMode { Max, Average, Sum, Priority }
     public enum AudioBand { Loudness, Bass, Treble }
     public enum PatternMode { None, Pulse, Wave, Ramp, Random }
+    public enum AudioCaptureMode { OutputMonitor, Application, SelectedGame }
+
+    public class GameEventRule
+    {
+        public string Event { get; set; } = "event";
+        public bool Enabled { get; set; } = true;
+        public double Level { get; set; } = .5;
+        public int DurationMs { get; set; } = 300;
+        public int CooldownMs { get; set; } = 50;
+    }
 
     /// <summary>Per-source shaping. Every source produces 0..1 and is shaped the same way.</summary>
     public class SourceSettings
@@ -67,6 +77,36 @@ namespace HapticLink.Core
         public SourceSettings Audio { get; set; } = new SourceSettings { AttackMs = 25, ReleaseMs = 180, Priority = 1 };
         public SourceSettings Osc { get; set; } = new SourceSettings { AttackMs = 20, ReleaseMs = 150, Priority = 2 };
         public SourceSettings Manual { get; set; } = new SourceSettings { Enabled = true, AttackMs = 0, ReleaseMs = 0, Priority = 4 };
+        public SourceSettings Events { get; set; } = new() { AttackMs = 0, ReleaseMs = 80, Priority = 5 };
+
+        // Intiface clients connect here instead of directly to Intiface Central.
+        public int IntegrationPort { get; set; } = 12346;
+        public int IntegrationTimeoutMs { get; set; } = 10000;
+        public List<GameEventRule> EventRules { get; set; } = new()
+        {
+            new() { Event = "kill", Level = .8, DurationMs = 400 },
+            new() { Event = "damage", Level = .6, DurationMs = 300 },
+            new() { Event = "death", Level = 1, DurationMs = 800 },
+            new() { Event = "shot", Level = .25, DurationMs = 60 },
+            new() { Event = "round_win", Level = .6, DurationMs = 1200 }
+        };
+
+        public AudioCaptureMode AudioCaptureMode { get; set; }
+        public int AudioProcessId { get; set; }
+        public int AudioStreamIndex { get; set; } = -1;
+        public bool AudioEqEnabled { get; set; } = true;
+        public double AudioEqPreampDb { get; set; }
+        public double[] AudioEqGainsDb { get; set; } = new double[10];
+
+        public string GameWindowId { get; set; } = "";
+        public int GameProcessId { get; set; }
+        public bool PauseWhenGameUnfocused { get; set; }
+        public bool OverlayEnabled { get; set; }
+        public bool OverlayInteractive { get; set; }
+        public bool OverlayOnlyWhenGameFocused { get; set; } = true;
+        public double OverlayOpacity { get; set; } = .9;
+        public int OverlayOffsetX { get; set; } = 20;
+        public int OverlayOffsetY { get; set; } = 20;
 
         // ---- audio ----
         public AudioBand AudioBand { get; set; } = AudioBand.Loudness;
@@ -167,6 +207,11 @@ namespace HapticLink.Core
                 Log.Write("Config load failed, using defaults: " + ex.Message);
             }
             s ??= new Settings();
+            if (!Enum.IsDefined(s.AudioCaptureMode)) s.AudioCaptureMode = AudioCaptureMode.OutputMonitor;
+            s.AudioEqGainsDb = s.AudioEqGainsDb?.Length == 10 ? s.AudioEqGainsDb.Select(v => double.IsFinite(v) ? Math.Clamp(v, -12, 12) : 0).ToArray() : new double[10];
+            s.EventRules = (s.EventRules ?? new()).Where(r => r != null && !string.IsNullOrWhiteSpace(r.Event)).Take(64).ToList();
+            s.IntegrationPort = s.IntegrationPort is >= 1024 and <= 65535 ? s.IntegrationPort : 12346;
+            s.GameWindowId ??= "";
 
             // The avatar isn't known yet at launch, so start from the shared profile — the file may
             // have been written while some avatar's own profile was the live copy.

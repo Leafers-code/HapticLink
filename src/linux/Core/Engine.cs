@@ -17,11 +17,12 @@ namespace HapticLink.Core
         public bool SafetyTripped;
         public double Output;
         public int OutputLevel20;
-        public double[] Raw = new double[4];
-        public double[] Shaped = new double[4];
-        public string[] SourceStatus = new string[4];
-        public bool[] SourceAvailable = new bool[4];
-        public bool[] SourceRunning = new bool[4];
+        public double[] Raw = new double[5];
+        public double[] Shaped = new double[5];
+        public string[] SourceStatus = new string[5];
+        public bool[] SourceAvailable = new bool[5];
+        public bool[] SourceRunning = new bool[5];
+        public bool FocusPaused;
         public TimeSpan ContinuousRun;
         /// <summary>One entry per toy motor, each with its own Output. <see cref="Output"/> is the strongest of them.</summary>
         public List<Channel> Channels = new();
@@ -33,7 +34,7 @@ namespace HapticLink.Core
     /// </summary>
     public class Engine : IDisposable
     {
-        public const int IdxRumble = 0, IdxAudio = 1, IdxOsc = 2, IdxManual = 3;
+        public const int IdxRumble = 0, IdxAudio = 1, IdxOsc = 2, IdxManual = 3, IdxEvents = 4;
 
         public Settings S { get; }
         public LovenseClient Client { get; } = new();
@@ -42,9 +43,11 @@ namespace HapticLink.Core
         public AudioSource Audio { get; }
         public OscSource Osc { get; }
         public ManualSource Manual { get; }
+        public IntegrationSource Events { get; }
+        public GameFocus Game { get; }
 
         private readonly SourceBase[] _sources;
-        private readonly Smoother[] _smoothers = { new(), new(), new(), new() };
+        private readonly Smoother[] _smoothers = { new(), new(), new(), new(), new() };
         // VRChat reaches each toy motor as a different signal, so that source is smoothed per channel.
         private readonly Dictionary<string, Smoother> _oscSmoothers = new();
 
@@ -59,7 +62,8 @@ namespace HapticLink.Core
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private double _lastTickMs;
         private TimeSpan _continuousRun;
-        private DateTime _lastZeroUtc = DateTime.UtcNow;
+        private DateTime? _zeroSinceUtc = DateTime.UtcNow;
+        private long _eventsStopRevision;
 
         public bool Armed { get; private set; }
         public bool Panicked { get; private set; }
@@ -83,11 +87,13 @@ namespace HapticLink.Core
         public Engine(Settings s)
         {
             S = s;
+            Game = new GameFocus(s);
             Rumble = new RumbleSource(s);
-            Audio = new AudioSource(s);
+            Audio = new AudioSource(s, Game);
             Osc = new OscSource(s);
             Manual = new ManualSource(s);
-            _sources = new SourceBase[] { Rumble, Audio, Osc, Manual };
+            Events = new IntegrationSource(s);
+            _sources = new SourceBase[] { Rumble, Audio, Osc, Manual, Events };
         }
 
         public SourceSettings SettingsFor(int idx) => idx switch
@@ -95,6 +101,7 @@ namespace HapticLink.Core
             IdxRumble => S.Rumble,
             IdxAudio => S.Audio,
             IdxOsc => S.Osc,
+            IdxEvents => S.Events,
             _ => S.Manual
         };
 
@@ -106,6 +113,7 @@ namespace HapticLink.Core
         public void Start()
         {
             if (_loop != null) return;
+            Game.Start();
             _cts = new CancellationTokenSource();
             _loop = Task.Run(() => RunLoop(_cts.Token));
 
@@ -143,6 +151,7 @@ namespace HapticLink.Core
                 SafetyTripped = false;
                 _continuousRun = TimeSpan.Zero;
                 if (!on) _ = StopOutputAsync();
+                if (!on) Events.Clear();
                 Log.Write(on ? "Output armed." : "Output disarmed.");
             }
         }
@@ -158,6 +167,7 @@ namespace HapticLink.Core
                 foreach (var sm in _smoothers) sm.Reset();
                 _oscSmoothers.Clear();
                 S.ManualLevel = 0;
+                Events.Clear();
                 _ = StopOutputAsync();
                 Log.Write("PANIC — output stopped.");
             }
@@ -254,7 +264,8 @@ namespace HapticLink.Core
             {
                 Connected = Client.IsConnected,
                 Armed = Armed,
-                Panicked = Panicked
+                Panicked = Panicked,
+                FocusPaused = Game.State.Pauses(S)
             };
 
             for (int i = 0; i < _sources.Length; i++)
@@ -262,6 +273,11 @@ namespace HapticLink.Core
                 var src = _sources[i];
                 var cfg = SettingsFor(i);
                 src.Tick(dtMs);
+                if (i == IdxEvents && Events.StopRevision != _eventsStopRevision)
+                {
+                    _eventsStopRevision = Events.StopRevision;
+                    _smoothers[i].Reset();
+                }
 
                 st.Raw[i] = src.Raw;
                 st.SourceStatus[i] = src.Status;
@@ -306,10 +322,11 @@ namespace HapticLink.Core
             var output = mixedMax;
 
             // ---- safety ----
-            if (!Armed || Panicked) output = 0;
+            if (!Armed || Panicked || st.FocusPaused) output = 0;
 
             if (output > 0.001)
             {
+                _zeroSinceUtc = null;
                 _continuousRun += TimeSpan.FromMilliseconds(dtMs);
                 if (S.MaxContinuousMinutes > 0 &&
                     _continuousRun.TotalMinutes >= S.MaxContinuousMinutes && !SafetyTripped)
@@ -324,19 +341,19 @@ namespace HapticLink.Core
             else
             {
                 // a full minute at zero resets the continuous-run budget
-                if ((DateTime.UtcNow - _lastZeroUtc).TotalSeconds > 60) _continuousRun = TimeSpan.Zero;
-                _lastZeroUtc = DateTime.UtcNow;
+                _zeroSinceUtc ??= DateTime.UtcNow;
+                if ((DateTime.UtcNow - _zeroSinceUtc.Value).TotalSeconds >= 60) _continuousRun = TimeSpan.Zero;
             }
 
             if (SafetyTripped) output = 0;
 
             // Test pulses are explicit and short-lived, so they win over arm/safety but never over panic.
-            var testing = !Panicked && DateTime.UtcNow < _testUntilUtc;
+            var testing = !Panicked && !st.FocusPaused && DateTime.UtcNow < _testUntilUtc;
             var testLevel = Math.Min(_testLevel, Sig.Clamp01(S.MasterCap));
             if (testing) output = Math.Max(output, testLevel);
 
             // Whatever silenced the overall output silences every motor; a test pulse reaches them all.
-            var open = Armed && !Panicked && !SafetyTripped;
+            var open = Armed && !Panicked && !SafetyTripped && !st.FocusPaused;
             foreach (var ch in channels)
             {
                 if (!open) ch.Output = 0;
@@ -412,6 +429,7 @@ namespace HapticLink.Core
             try { ShutdownAsync().GetAwaiter().GetResult(); } catch { }
             foreach (var s in _sources) { try { s.Dispose(); } catch { } }
             Client.Dispose();
+            Game.Dispose();
             _cts?.Dispose();
         }
     }

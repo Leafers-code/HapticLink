@@ -9,6 +9,9 @@ public sealed class RumbleSource : SourceBase
 {
     public override string Name => "Rumble";
     private readonly Settings _s;
+#if WINDOWS_BACKEND
+    private WindowsRumbleSource _windows;
+#endif
     private Process _process;
     private Task _reader;
     private volatile int _strong, _weak;
@@ -18,6 +21,9 @@ public sealed class RumbleSource : SourceBase
 
     public static List<(string Id, string Name)> ListDevices(Settings s)
     {
+#if WINDOWS_BACKEND
+        if (OperatingSystem.IsWindows()) return XInput.ConnectedSlots().Select(i => ("", "XInput slot " + i)).ToList();
+#endif
         try
         {
             using var doc = JsonDocument.Parse(LinuxProcess.Run(s.PythonCommand, Helper, "--list"));
@@ -29,6 +35,12 @@ public sealed class RumbleSource : SourceBase
 
     public override void Start()
     {
+#if WINDOWS_BACKEND
+        if (OperatingSystem.IsWindows())
+        {
+            _windows ??= new WindowsRumbleSource(_s); _windows.Start(); Available = _windows.Available; Running = _windows.Running; Status = _windows.Status; return;
+        }
+#endif
         if (_process != null) Stop();
         if (!OperatingSystem.IsLinux()) { Available = false; Status = "Linux controller backend"; return; }
         try
@@ -68,11 +80,19 @@ public sealed class RumbleSource : SourceBase
         catch (Exception ex) { Available = Running = false; Status = "Controller bridge failed: " + ex.Message; }
     }
 
-    public override void Tick(double dtMs) => Raw = Running && (DateTime.UtcNow - _lastData).TotalMilliseconds < 350
-        ? Sig.Clamp01(Math.Max(_strong / 65535d * _s.RumbleLargeWeight, _weak / 65535d * _s.RumbleSmallWeight)) : 0;
+    public override void Tick(double dtMs)
+    {
+#if WINDOWS_BACKEND
+        if (_windows != null) { _windows.Tick(dtMs); Raw = _windows.Raw; Available = _windows.Available; Running = _windows.Running; Status = _windows.Status; return; }
+#endif
+        Raw = Running && (DateTime.UtcNow - _lastData).TotalMilliseconds < 350 ? Sig.Clamp01(Math.Max(_strong / 65535d * _s.RumbleLargeWeight, _weak / 65535d * _s.RumbleSmallWeight)) : 0;
+    }
 
     public override void Stop()
     {
+#if WINDOWS_BACKEND
+        _windows?.Stop();
+#endif
         try { _process?.StandardInput.Close(); } catch { }
         try { if (_process is { HasExited: false } && !_process.WaitForExit(1000)) _process.Kill(true); } catch { }
         try { _reader?.Wait(1500); } catch { }
