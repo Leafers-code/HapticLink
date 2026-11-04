@@ -1,4 +1,4 @@
-# HapticLink 1.5 — Windows preview
+# HapticLink 1.5.1 — Windows preview
 
 The updated Avalonia app can also be published for Windows. It includes the Intiface-compatible event receiver, CS2 GSI, game-window focus pausing, transparent overlay with interactive EQ, patterns and OSC. It uses NAudio WASAPI for output-device capture and the recovered ViGEm/XInput implementation for controller rumble.
 

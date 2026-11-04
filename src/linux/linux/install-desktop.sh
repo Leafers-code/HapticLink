@@ -11,7 +11,7 @@ Type=Application
 Name=HapticLink
 Comment=Game audio, controller rumble and OSC haptics
 Exec="$escaped"
-Icon=input-gaming
+Icon=$app_dir/assets/hapticlink.png
 Terminal=false
 Categories=Utility;Game;
 EOF

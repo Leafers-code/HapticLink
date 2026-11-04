@@ -55,6 +55,14 @@ public sealed class PluginManagerPanel : StackPanel
     }
     private bool Matches(PluginProfile p) => Matches(p.Name + " " + p.Description);
     private bool Matches(string text) => string.IsNullOrWhiteSpace(_search.Text) || text.Contains(_search.Text.Trim(), StringComparison.OrdinalIgnoreCase);
+    public void RemovePlugin(string id)
+    {
+        var item = _manager.Installed.FirstOrDefault(p => p.Profile.Id == id);
+        if (item == null) return;
+        _removed = (_manager.Export(id), item.Enabled); _manager.Uninstall(id); _engine.S.Save();
+        _discover = false; _message.Text = "Removed " + item.Profile.Name + ". Use Undo removal to restore it.";
+        Build(); _open("Plugins");
+    }
     private void Build()
     {
         _list.Children.Clear(); var installed = _manager.Installed;
@@ -76,7 +84,7 @@ public sealed class PluginManagerPanel : StackPanel
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 6 };
             row.Children.Add(Label(PluginManager.TabTitle(profile) + "  ·  " + (item.Enabled ? "Enabled" : "Disabled"), true));
             var open = Button("Open tab", () => { _open("plugin:" + profile.Id); return Task.CompletedTask; }); open.Name = "OpenGame-" + profile.Id; Grid.SetColumn(open, 1); row.Children.Add(open);
-            var remove = Button("Remove", () => { _removed = (_manager.Export(profile.Id), item.Enabled); _manager.Uninstall(profile.Id); _engine.S.Save(); _message.Text = "Removed " + profile.Name + "."; Build(); return Task.CompletedTask; }); remove.Name = "RemoveGame-" + profile.Id; Grid.SetColumn(remove, 2); row.Children.Add(remove);
+            var remove = Button("Remove plugin", () => { RemovePlugin(profile.Id); return Task.CompletedTask; }); remove.Name = "RemoveGame-" + profile.Id; Grid.SetColumn(remove, 2); row.Children.Add(remove);
             content.Children.Add(row); content.Children.Add(Label(profile.Description));
             var advanced = new StackPanel { Spacing = 4 };
             advanced.Children.Add(Button("Export plugin…", () => Export(profile)));
@@ -103,7 +111,7 @@ public sealed class PluginManagerPanel : StackPanel
         {
             var local = installed.FirstOrDefault(p => p.Profile.Id == entry.Id);
             var content = new StackPanel { Spacing = 4 };
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 6 };
             row.Children.Add(Label(entry.Name, true));
             if (entry.ListsIntiface || entry.Id is "cs2-events" or "overwatch2")
             {
@@ -117,6 +125,10 @@ public sealed class PluginManagerPanel : StackPanel
                 }); add.Name = "CommunityAdd-" + entry.Id; Grid.SetColumn(add, 1); row.Children.Add(add);
             }
             else { var guide = Button("View project ↗", () => OpenLink(entry.Url)); Grid.SetColumn(guide, 1); row.Children.Add(guide); }
+            if (local != null)
+            {
+                var remove = Button("Remove plugin", () => { RemovePlugin(entry.Id); return Task.CompletedTask; }); remove.Name = "CommunityRemove-" + entry.Id; Grid.SetColumn(remove, 2); row.Children.Add(remove);
+            }
             content.Children.Add(row);
             content.Children.Add(Label(entry.Category + "  ·  " + entry.Platform + "  ·  " + entry.SetupKind));
             var state = Label(local != null ? "Connection tab added · external setup may still be needed" : entry.Id == "cs2-events" ? "HapticLink game-config installer available" : entry.Id == "overwatch2" ? "HapticLink companion setup available" : entry.ListsIntiface ? "Lists Intiface support · external setup needed" : "Connection support unknown · check project");

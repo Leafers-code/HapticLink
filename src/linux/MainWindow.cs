@@ -50,7 +50,8 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "HapticLink · 1.5 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
+        Title = "HapticLink · 1.5.1 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
+        Icon = new WindowIcon(Avalonia.Platform.AssetLoader.Open(new Uri("avares://HapticLink/assets/hapticlink.ico")));
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Classic.Background;
         _engine = new Engine(_s);
@@ -497,7 +498,7 @@ public sealed class MainWindow : Window
             var stamp = PluginManager.Serialize(plugin.Profile);
             if (_gameTabs.TryGetValue(plugin.Profile.Id, out var current) && current.Stamp == stamp) continue;
             if (current.Tab != null) _tabs.Items.Remove(current.Tab);
-            var panel = new GamePluginPanel(_engine, plugin.Profile);
+            var panel = new GamePluginPanel(_engine, plugin.Profile, _plugins.RemovePlugin);
             var tab = new TabItem { Header = PluginManager.TabTitle(plugin.Profile), Content = Scroll(panel), Tag = plugin.Profile.Id };
             ToolTip.SetTip(tab, plugin.Profile.Name);
             var position = _tabs.Items.Cast<TabItem>().ToList().FindIndex(t => t.Header?.ToString() == "Plugins");
@@ -526,7 +527,13 @@ public sealed class MainWindow : Window
     private static TextBlock Heading(string text) => new() { Text = text, FontWeight = FontWeight.SemiBold, Foreground = Classic.Muted, FontSize = 11, Margin = new Thickness(0, 2, 0, 5) };
     private static StackPanel Panel() => new() { Spacing = 4 };
     private static Border Card(Control child) => new() { Child = child, Background = Classic.Panel, BorderBrush = Classic.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12) };
-    private static ScrollViewer Scroll(Control content) => new() { Content = content, Padding = new Thickness(10), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+    private static ScrollViewer Scroll(Control content) => new()
+    {
+        // Padding belongs to the measured content so the last controls can scroll fully into view.
+        Content = new Border { Child = content, Padding = new Thickness(10) },
+        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+    };
     private static Grid Columns(Control first, Control second, bool equal = false)
     {
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions(equal ? "*,*" : "*,Auto"), ColumnSpacing = 6 };

@@ -4,9 +4,13 @@ A desktop app that maps game audio, controller rumble, VRChat OSC and manual pat
 
 This repository includes a Linux port and the recovered original Windows application.
 
-The updated 1.5 app also has a [Windows build](src/linux/README-Windows.md), with WASAPI output capture and ViGEm/XInput rumble. Per-application audio isolation is currently Linux-only; the overlay, EQ, integration bridge and game-focus pausing are available in the new Windows app.
+The updated 1.5.1 app also has a [Windows build](src/linux/README-Windows.md), with WASAPI output capture and ViGEm/XInput rumble. Per-application audio isolation is currently Linux-only; the overlay, EQ, integration bridge and game-focus pausing are available in the new Windows app.
 
 ![HapticLink classic interface](docs/classic-preview.png)
+
+## 1.5.1 interface update
+
+**Remove plugin** is available directly on each game tab and installed catalog card, with Undo in Plugins. Tab scrolling now includes the full bottom content; expanded sections scroll into view, and option lists can flip/resize at the screen edge. The app has a new link-and-pulse icon for Windows, its window and Linux launcher.
 
 ## Community plugin browser
 
@@ -31,13 +35,13 @@ The frequency EQ now lives directly inside Audio, next to device selection. Adva
 
 **1.2 features:** an Intiface/Buttplug-compatible vibration receiver (v2/v3/v4), configurable game-event rules and CS2 GSI, per-application/game audio capture, game-focus pausing, a transparent overlay with click-through/interactive modes, and a frequency-selective haptics EQ. Start with the [integration and overlay guide](src/linux/INTEGRATIONS.md).
 
-Download `HapticLink-linux-x64-1.5.0-preview.tar.xz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
+Download `HapticLink-linux-x64-1.5.1-preview.tar.xz` from the [downloads folder](downloads/), extract it, install the dependencies in the [Linux setup guide](src/linux/README-Linux.md), and run `./HapticLink` from the extracted folder. The package includes .NET and targets 64-bit Intel/AMD Linux with glibc. Wayland desktops currently use XWayland.
 
 ![HapticLink overlay preview](docs/overlay-preview.png)
 
 The Linux version uses Avalonia for the interface, PulseAudio or PipeWire's PulseAudio server for output-monitor audio capture, and an optional Python evdev/uinput bridge for controller rumble. Existing patterns, OSC/SPS processing, per-avatar settings and per-motor routing are retained. Configure a desktop shortcut to `HapticLink --panic` for a global stop command.
 
-**Preview status:** release compilation, 148 C# checks (including the official Buttplug client) and nine Python tests passed on Windows. The Windows app has been opened and its WASAPI meter verified. The Linux executable has not yet been launched on Linux; native audio isolation, game focus, overlay click-through, uinput and Steam/Proton routing still need Linux desktop testing. See the [validation report](src/linux/VALIDATION.md).
+**Preview status:** release compilation, 156 C# checks (including the official Buttplug client) and nine Python tests passed on Windows. The Windows app has been opened and its WASAPI meter verified. The Linux executable has not yet been launched on Linux; native audio isolation, game focus, overlay click-through, uinput and Steam/Proton routing still need Linux desktop testing. See the [validation report](src/linux/VALIDATION.md).
 
 ## Source layout
 

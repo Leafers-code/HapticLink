@@ -45,6 +45,8 @@ The setup keys were checked against [OverStim config](https://codeberg.org/pharm
 
 ## Add, remove and share game tabs
 
+**Remove plugin** is available in each game tab’s header, on installed entries in Discover, and in Plugins → Installed. Removal returns to Plugins with **Undo removal**, which restores the saved profile and its prior enabled choice. Removing a HapticLink plugin does not uninstall the external mod from its game.
+
 **Plugins** lists installed game tabs and other available integrations. Open a game directly, remove it, or undo the most recent removal. Removed bundled games are not recreated on every launch. Adding a game installs its ready-made settings without enabling its input or arming output.
 
 An imported custom integration also gets its own tab. Use **Import plugin** for a new plugin or an update with the same ID; existing enabled choices are preserved. Export a plugin under **Share / update** to share its event mappings. Imports configure HapticLink's input; external game mods/apps still require their own installation.

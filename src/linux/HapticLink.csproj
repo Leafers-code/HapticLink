@@ -5,7 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <AssemblyName>HapticLink</AssemblyName>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
+    <ApplicationIcon>assets/hapticlink.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">
     <DefineConstants>$(DefineConstants);WINDOWS_BACKEND</DefineConstants>
@@ -19,6 +20,8 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <Compile Remove="Tests/**/*.cs" />
+    <AvaloniaResource Include="assets/hapticlink.ico" />
+    <None Update="assets/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="linux/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="licenses/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="integrations/**/*" CopyToOutputDirectory="PreserveNewest" />

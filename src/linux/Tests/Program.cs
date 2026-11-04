@@ -152,6 +152,7 @@ internal static partial class Tests
         var window = new MainWindow(); window.Show();
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
+        Check(window.Icon != null, "application window loads the new bundled icon");
         Check(tabs.Items.Count == 10, "base tabs and preconfigured CS2/Overwatch game tabs constructed");
         foreach (TabItem tab in tabs.Items)
         {
@@ -190,6 +191,10 @@ internal static partial class Tests
             var point = control.TranslatePoint(new Avalonia.Point(), window);
             return point.HasValue && new Avalonia.Rect(window.ClientSize).Contains(new Avalonia.Rect(point.Value, control.Bounds.Size));
         }
+        void PumpLayout()
+        {
+            for (int i = 0; i < 30; i++) { Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Thread.Sleep(10); }
+        }
         Check(window.GetVisualDescendants().OfType<Button>().Where(b => b.Name is "ArmOutput" or "PanicStop").All(InViewport), "arm and panic remain visible at minimum window size");
         Check(window.GetVisualDescendants().OfType<TextBox>().Where(b => b.Name == "ActivityLog").All(InViewport), "persistent log remains visible at minimum window size");
         Check(tabs.Items.Cast<TabItem>().All(InViewport), "all tab headers fit at minimum window size");
@@ -202,6 +207,31 @@ internal static partial class Tests
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Check(InViewport(window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Apply event effects")), "all preconfigured CS2 event controls fit the minimum window");
         using (var minimumGame = window.CaptureRenderedFrame()) minimumGame.Save(Path.Combine(home, "ui-CS2-Minimum.png"));
+        Check(InViewport(window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "RemovePlugin-cs2-events")), "remove-plugin action is visible on the game tab at minimum size");
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Controller"); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        var setup = window.GetVisualDescendants().OfType<Expander>().Single(e => e.Header?.ToString() == "Controller setup");
+        setup.IsExpanded = true; PumpLayout();
+        var setupViewport = setup.GetVisualAncestors().OfType<Avalonia.Controls.Presenters.ScrollContentPresenter>().First();
+        var setupPoint = setup.TranslatePoint(new Avalonia.Point(), setupViewport);
+        Check(setupPoint.HasValue && new Avalonia.Rect(setupViewport.Bounds.Size).Contains(new Avalonia.Rect(setupPoint.Value, setup.Bounds.Size)), "opening the bottom Controller section reveals its full content inside the tab viewport");
+        using (var expanded = window.CaptureRenderedFrame()) expanded.Save(Path.Combine(home, "ui-Controller-Expanded.png"));
+        setup.IsExpanded = false;
+        var mode = window.GetVisualDescendants().OfType<ComboBox>().First(); mode.IsDropDownOpen = true; PumpLayout();
+        var popup = mode.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.Popup>().Single();
+        Check(mode.MaxDropDownHeight <= 224 && popup.PlacementConstraintAdjustment.HasFlag(Avalonia.Controls.Primitives.PopupPositioning.PopupPositionerConstraintAdjustment.FlipY)
+            && popup.PlacementConstraintAdjustment.HasFlag(Avalonia.Controls.Primitives.PopupPositioning.PopupPositionerConstraintAdjustment.ResizeY), "option lists stay bounded and can flip or resize at the screen edge");
+        mode.IsDropDownOpen = false;
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Audio"); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        var advancedAudio = window.GetVisualDescendants().OfType<Expander>().Single(e => e.Header?.ToString() == "Advanced audio settings");
+        advancedAudio.IsExpanded = true; PumpLayout();
+        var advancedHeader = advancedAudio.GetVisualDescendants().OfType<Button>().First(b => b.Name == "ExpanderHeader");
+        var advancedScroll = advancedAudio.GetVisualAncestors().OfType<ScrollViewer>().First();
+        var headerPoint = advancedHeader.TranslatePoint(new Avalonia.Point(), advancedScroll);
+        Check(headerPoint.HasValue && headerPoint.Value.Y >= 0 && headerPoint.Value.Y + advancedHeader.Bounds.Height <= advancedScroll.Bounds.Height, "tall Advanced audio section opens with its header visible inside the tab viewport");
+        advancedScroll.ScrollToEnd(); PumpLayout();
+        Check(InViewport(advancedAudio.GetVisualDescendants().OfType<Slider>().Last()), "the final advanced audio controls remain reachable by scrolling");
+        using (var advancedImage = window.CaptureRenderedFrame()) advancedImage.Save(Path.Combine(home, "ui-Advanced-Audio-Scrolled.png"));
+        advancedAudio.IsExpanded = false;
         window.Width = 1200; window.Height = 800;
         var liveEngine = (Engine)typeof(MainWindow).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(window);
         Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "EQ"), "frequency EQ is part of Audio instead of a separate tab");
@@ -235,10 +265,15 @@ internal static partial class Tests
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         ClickButton("UseHostPort-" + entry.Id);
         Check(liveEngine.Plugins.HostPortPluginId == entry.Id && !liveEngine.Plugins.Installed.Single(p => p.Profile.Id == entry.Id).Enabled && !liveEngine.Armed, "game tab assigns host / port mode without enabling or arming output");
+        ClickButton("RemovePlugin-" + entry.Id); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        Check(tabs.SelectedItem is TabItem removedFromGame && removedFromGame.Header.ToString() == "Plugins" && !tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "FFXIV Vibe Plugin"), "remove button on a game tab removes it and returns to Plugins");
+        window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Undo removal").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Dispatcher.UIThread.RunJobs();
+        Check(tabs.SelectedItem is TabItem restoredCommunity && restoredCommunity.Header.ToString() == "FFXIV Vibe Plugin", "game-tab removal can be undone from Plugins");
         tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Plugins"); Dispatcher.UIThread.RunJobs();
         browserSearch.Text = ""; ClickButton("InstalledPlugins"); Dispatcher.UIThread.RunJobs();
         Check(window.GetVisualDescendants().OfType<Button>().Count(b => b.Name == "OpenGame-" + entry.Id) == 1, "community tab appears once in the installed manager");
-        ClickButton("RemoveGame-" + entry.Id); Dispatcher.UIThread.RunJobs();
+        ClickButton("DiscoverPlugins"); browserSearch.Text = "FFXIV"; Dispatcher.UIThread.RunJobs();
+        ClickButton("CommunityRemove-" + entry.Id); Dispatcher.UIThread.RunJobs(); browserSearch.Text = ""; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "FFXIV Vibe Plugin"), "community game removal removes its main tab");
         ClickButton("RemoveGame-overwatch2"); Dispatcher.UIThread.RunJobs();
         Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "Overwatch 2"), "removing a game removes its tab");

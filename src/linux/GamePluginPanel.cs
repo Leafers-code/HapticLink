@@ -20,10 +20,10 @@ public sealed class GamePluginPanel : StackPanel
     private readonly TextBox _address = new() { IsReadOnly = true };
     private readonly TextBlock _hostPortStatus = Label("");
     private bool _syncing;
-    public GamePluginPanel(Engine engine, PluginProfile profile)
+    public GamePluginPanel(Engine engine, PluginProfile profile, Action<string> remove = null)
     {
         _engine = engine; _manager = engine.Plugins; _id = profile.Id; _profile = profile; Spacing = 4;
-        var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 8 };
         heading.Children.Add(new TextBlock { Text = profile.Name.ToUpperInvariant(), FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Classic.Muted });
         _enabled = new CheckBox { Content = "Enable plugin", Name = "GameEnabled-" + _id };
         _enabled.IsCheckedChanged += (_, _) =>
@@ -34,6 +34,11 @@ public sealed class GamePluginPanel : StackPanel
             engine.S.Save(); Refresh();
         };
         Grid.SetColumn(_enabled, 1); heading.Children.Add(_enabled); Children.Add(heading);
+        if (remove != null)
+        {
+            var removeButton = Button("Remove plugin", () => { remove(_id); return Task.CompletedTask; }); removeButton.Name = "RemovePlugin-" + _id;
+            ToolTip.SetTip(removeButton, "Remove this HapticLink plugin and its tab. Undo is available in Plugins."); Grid.SetColumn(removeButton, 2); heading.Children.Add(removeButton);
+        }
         if (profile.Kind != "cs2") Children.Add(Label(profile.Description));
         var meter = new Grid { ColumnDefinitions = new ColumnDefinitions("180,*,52"), ColumnSpacing = 8 };
         _status.MaxLines = 1; _status.TextTrimming = TextTrimming.CharacterEllipsis; meter.Children.Add(_status);

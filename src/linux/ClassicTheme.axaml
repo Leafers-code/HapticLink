@@ -59,6 +59,13 @@
   </Style>
   <Style Selector="TextBox"><Setter Property="FontFamily" Value="Consolas, DejaVu Sans Mono"/></Style>
   <Style Selector="ComboBoxItem"><Setter Property="FontSize" Value="12"/><Setter Property="MinHeight" Value="26"/><Setter Property="Padding" Value="8,4"/></Style>
+  <Style Selector="ComboBox"><Setter Property="MinHeight" Value="30"/><Setter Property="MaxDropDownHeight" Value="224"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <Style Selector="ComboBox /template/ Popup#PART_Popup">
+    <Setter Property="Placement" Value="Bottom"/>
+    <Setter Property="ShouldUseOverlayLayer" Value="False"/>
+    <Setter Property="PlacementConstraintAdjustment" Value="FlipY,SlideY,ResizeY,SlideX"/>
+  </Style>
+  <Style Selector="ScrollViewer"><Setter Property="AllowAutoHide" Value="False"/></Style>
   <Style Selector="CheckBox"><Setter Property="MinHeight" Value="24"/><Setter Property="FontSize" Value="12"/><Setter Property="Padding" Value="8,0,0,0"/></Style>
   <Style Selector="TabItem">
     <Setter Property="Foreground" Value="#8A92A6"/><Setter Property="Padding" Value="12,7"/>

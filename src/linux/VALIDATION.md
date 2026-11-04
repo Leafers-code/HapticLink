@@ -1,11 +1,11 @@
-# Validation — HapticLink 1.5 preview
+# Validation — HapticLink 1.5.1 preview
 
 Built November 3, 2026 with .NET SDK 8.0.427 and Avalonia 11.3.22 on Windows x64. The updated app builds for `linux-x64` and `win-x64`; the original Windows WPF source is unchanged.
 
 ## Passed
 
 - Release compilation: zero warnings and errors.
-- 148 C# checks, including a real connection from the official Buttplug C# 5.0.1 client: discovery, vibration and StopCmd. Raw v2/v3/v4 clients verify handshakes, capabilities, scanning, command validation, disconnect and missing-ping expiry.
+- 156 C# checks, including a real connection from the official Buttplug C# 5.0.1 client: discovery, vibration and StopCmd. Raw v2/v3/v4 clients verify handshakes, capabilities, scanning, command validation, disconnect and missing-ping expiry.
 - Real loopback HTTP event requests; invalid-level rejection; pulse expiry; CS2 baseline, local-player kill and spectating fixtures; event source integration with the armed mixer; immediate clearing of release smoothing on stop.
 - Plugin manager: schema validation, install/export/update/reload, persistent enabled choices, invalid-file isolation, profile-specific HTTP/Buttplug/CS2 routes, cooldowns and mapping enforcement, per-profile stop/removal, CS2 baseline resets, config export, preconfigured game initialization, per-game live intensity scaling, dedicated tab removal/restore, schema-one import, CS2 config installation/backups and OverStim configuration text preservation.
 - Community discovery: 69-project offline snapshot, live HTTPS refresh (69 projects / 44 game integrations), game/app section parsing, exclusion of deprecated/library/unsafe/duplicate entries, stable URL identity, valid generated profiles, FFXIV repository/setup metadata, project URL validation, persistent cache, corrupt-cache fallback and failed/oversized/redirected refresh preservation.
@@ -16,6 +16,9 @@ Built November 3, 2026 with .NET SDK 8.0.427 and Avalonia 11.3.22 on Windows x64
 - Application audio metadata parsing; X11 window geometry/title parsing; focus policy and engine gating; paused output does not consume the continuous-output budget.
 - All ten default main-window tabs plus the transparent overlay rendered with Avalonia Headless/Skia. Screenshots inspected, including EQ controls and overlay. GUI shutdown and device/profile controls checked.
 - The minimum 1040×700 window keeps arm/panic, every tab header, the persistent log, integrated Audio cutoff controls and all five CS2 event controls inside the viewport. Both minimum and default sizes were rendered and inspected.
+- Removal directly from a game tab and from Discover, including return navigation, Undo, disabled creation and visibility at the minimum window size.
+- Scroll regression: the full expanded Controller section fits inside the actual tab viewport; tall Audio settings open with their header visible and the last tonal controls remain reachable. Dropdown height is bounded, with screen-edge flip/resize behavior configured. Persistent scrollbars expose overflowing content.
+- New window icon loaded from the embedded multi-resolution ICO; PNG/SVG assets are included for launchers and source editing.
 - Nine Python controller-bridge tests retained from the earlier version.
 - Windows PCM normalization: continuous 44.1→48 kHz resampling, mono-to-stereo conversion and opposite-phase float stereo. The Windows app was launched from Documents and its WASAPI output meter observed responding. No real-device connection or arming was performed during that verification.
 

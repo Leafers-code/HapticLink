@@ -43,6 +43,7 @@ public sealed class App : Application
         RequestedThemeVariant = ThemeVariant.Dark;
         Styles.Add(new FluentTheme());
         Styles.Add(new StyleInclude(new Uri("avares://HapticLink/")) { Source = new Uri("avares://HapticLink/ClassicTheme.axaml") });
+        MenuLayout.Install();
     }
     public override void OnFrameworkInitializationCompleted()
     {
