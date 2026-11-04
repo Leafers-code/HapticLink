@@ -69,7 +69,7 @@ sudo dnf install wmctrl xprop libXext
 sudo pacman -S wmctrl xorg-xprop libxext
 ```
 
-The overlay is a separate borderless, transparent, always-on-top window. It shows the selected game, arm/pause/output state, all five source meters and recent event text. Default mode passes mouse input through on Windows/X11. Interactive mode exposes Arm/Panic controls, an EQ button with live equalizer controls, and a draggable header. EQ settings stay synchronized with the main Audio tab. Its offset and opacity are saved. With focus-only display selected, it hides outside the game; interactive mode keeps it visible for adjustment.
+The overlay is a separate borderless, transparent, always-on-top window. It shows the selected game, arm/pause/output state, all five source meters and recent event text. Default mode passes mouse input through on Windows/X11. Interactive mode exposes Arm/Panic controls, an EQ button with live equalizer controls, and a draggable header. EQ settings stay synchronized with the main EQ tab. Its offset and opacity are saved. With focus-only display selected, it hides outside the game; interactive mode keeps it visible for adjustment.
 
 It works with windowed and borderless games when the window manager permits it. It is not an injected Discord/Steam overlay and may be covered by exclusive fullscreen. Native Wayland games and compositor-specific restrictions can prevent discovery, positioning, click-through or always-on-top behavior. The supplied Avalonia 11 build uses XWayland. Unknown focus with focus pausing enabled silences output.
 
@@ -83,7 +83,13 @@ HapticLink --panic
 
 ## Haptics EQ
 
-The Audio tab has ten peaking bands from 31 Hz to 16 kHz, each adjustable ±12 dB, plus preamp, band-energy meters, bypass and Flat/Impacts/Detail presets. EQ runs before the loudness/bass/treble detector. It changes which frequencies drive haptics; it does not equalize speaker or headphone playback. Gain changes apply live.
+The **EQ** tab selects the frequencies used to generate haptics. Choose **Full range**, **Bass** (20–180 Hz), **Mids** (180–2500 Hz) or **Treble** (2500–20000 Hz), or set an exact custom range using **From / To (Hz)**. You can also drag the blue edges on the spectrum. The highlighted region is the selected capture band; incoming audio outside it is filtered out with a gradual roll-off at the cutoffs. Changes apply live without restarting capture and are saved.
+
+For example, set **80–140 Hz** to focus on low bass pulses while rejecting most voices and higher-frequency effects. The selection works on the chosen output device or Linux application/game stream. It changes the audio used for haptics, without changing speaker/headphone playback.
+
+**Advanced tonal shaping** retains the optional ten-band ±12 dB EQ and preamp after frequency selection. Turning tonal shaping off leaves the capture range active. Existing Bass/Treble settings are preserved when upgrading. The overlay's EQ button exposes the same range controls.
+
+Filter coefficients follow the [RBJ audio EQ cookbook](https://webaudio.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html).
 
 ## Validation
 

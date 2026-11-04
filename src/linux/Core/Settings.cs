@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 namespace HapticLink.Core
 {
     public enum MixMode { Max, Average, Sum, Priority }
-    public enum AudioBand { Loudness, Bass, Treble }
+    public enum AudioBand { Loudness, Bass, Treble, Custom }
     public enum PatternMode { None, Pulse, Wave, Ramp, Random }
     public enum AudioCaptureMode { OutputMonitor, Application, SelectedGame }
 
@@ -95,6 +95,8 @@ namespace HapticLink.Core
         public int AudioProcessId { get; set; }
         public int AudioStreamIndex { get; set; } = -1;
         public bool AudioEqEnabled { get; set; } = true;
+        public double AudioCaptureLowHz { get; set; } = 20;
+        public double AudioCaptureHighHz { get; set; } = 20000;
         public double AudioEqPreampDb { get; set; }
         public double[] AudioEqGainsDb { get; set; } = new double[10];
 
@@ -208,6 +210,8 @@ namespace HapticLink.Core
             }
             s ??= new Settings();
             if (!Enum.IsDefined(s.AudioCaptureMode)) s.AudioCaptureMode = AudioCaptureMode.OutputMonitor;
+            if (!Enum.IsDefined(s.AudioBand)) s.AudioBand = AudioBand.Loudness;
+            (s.AudioCaptureLowHz, s.AudioCaptureHighHz) = AudioFrequencyRange.Normalize(s.AudioCaptureLowHz, s.AudioCaptureHighHz);
             s.AudioEqGainsDb = s.AudioEqGainsDb?.Length == 10 ? s.AudioEqGainsDb.Select(v => double.IsFinite(v) ? Math.Clamp(v, -12, 12) : 0).ToArray() : new double[10];
             s.EventRules = (s.EventRules ?? new()).Where(r => r != null && !string.IsNullOrWhiteSpace(r.Event)).Take(64).ToList();
             s.IntegrationPort = s.IntegrationPort is >= 1024 and <= 65535 ? s.IntegrationPort : 12346;

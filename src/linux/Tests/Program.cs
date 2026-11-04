@@ -121,13 +121,20 @@ internal static partial class Tests
         s.AudioBand = AudioBand.Bass; process.Invoke(audio, new object[] { tone }); var bass = audio.Raw;
         s.AudioBand = AudioBand.Treble; process.Invoke(audio, new object[] { tone });
         Check(bass > audio.Raw + .3, "bass and treble filters distinguish low-frequency audio");
+        s.AudioBand = AudioBand.Custom; s.AudioCaptureLowHz = 60; s.AudioCaptureHighHz = 120;
+        process.Invoke(audio, new object[] { tone }); var selectedBass = audio.Raw;
+        s.AudioCaptureLowHz = 2000; s.AudioCaptureHighHz = 5000;
+        // Let the transition settle across multiple input buffers, as a live capture does.
+        for (int i = 0; i < 4; i++) process.Invoke(audio, new object[] { tone });
+        Check(selectedBass > .7 && audio.Raw == 0, "audio detector derives haptics from the chosen frequency range");
     }
 
     private static void TestConfig(Settings s)
     {
-        s.Host = ""; s.OscShared = s.CaptureOsc(); s.Save();
+        s.Host = ""; s.AudioBand = AudioBand.Custom; s.AudioCaptureLowHz = 70; s.AudioCaptureHighHz = 140; s.OscShared = s.CaptureOsc(); s.Save();
         var loaded = Settings.Load();
         Check(loaded.MasterCap == s.MasterCap && loaded.OscShared != null, "config round-trip retains existing settings schema");
+        Check(loaded.AudioBand == AudioBand.Custom && AudioFrequencyRange.For(loaded) == (70d, 140d), "custom capture frequency selection survives configuration round-trip");
         loaded.SwitchOsc("avtr_test"); loaded.RememberOscAvatar("Test avatar"); loaded.Osc.Gain = 2;
         loaded.SwitchOsc("avtr_other"); Check(loaded.Osc.Gain != 2, "other avatars use shared profile");
         loaded.SwitchOsc("avtr_test"); Check(loaded.Osc.Gain == 2, "remembered avatar profile returns");
@@ -150,13 +157,40 @@ internal static partial class Tests
             using var image = window.CaptureRenderedFrame();
             Check(image != null && image.PixelSize.Width > 800, "render tab: " + tab.Header);
             image.Save(Path.Combine(home, "ui-" + tab.Header.ToString().Replace(' ', '-') + ".png"));
-            if (tab.Header.ToString() == "Audio")
+            if (tab.Header.ToString() == "EQ")
             {
                 var eq = (EqualizerPanel)typeof(MainWindow).GetField("_equalizer", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
                 eq.BringIntoView(); Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 using var detail = window.CaptureRenderedFrame(); detail.Save(Path.Combine(home, "ui-Equalizer.png"));
             }
         }
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "EQ");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        var bassButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Bass");
+        bassButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        var liveSettings = (Settings)typeof(MainWindow).GetField("_s", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(window);
+        Check(liveSettings.AudioBand == AudioBand.Bass && AudioFrequencyRange.For(liveSettings) == (20d, 180d), "Bass preset selects the actual audio capture band");
+        Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        using (var bassImage = window.CaptureRenderedFrame()) bassImage.Save(Path.Combine(home, "ui-EQ-Bass.png"));
+        var cutoffs = window.GetVisualDescendants().OfType<NumericUpDown>().ToList();
+        cutoffs.Single(c => c.Name == "CaptureFromHz").Value = 80;
+        cutoffs.Single(c => c.Name == "CaptureToHz").Value = 140;
+        Check(liveSettings.AudioBand == AudioBand.Custom && AudioFrequencyRange.For(liveSettings) == (80d, 140d), "cutoff controls select a custom audio capture range");
+        Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        using (var customImage = window.CaptureRenderedFrame()) customImage.Save(Path.Combine(home, "ui-EQ-Custom.png"));
+        window.Width = 1040; window.Height = 700;
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Manual");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        bool InViewport(Control control)
+        {
+            var point = control.TranslatePoint(new Avalonia.Point(), window);
+            return point.HasValue && new Avalonia.Rect(window.ClientSize).Contains(new Avalonia.Rect(point.Value, control.Bounds.Size));
+        }
+        Check(window.GetVisualDescendants().OfType<Button>().Where(b => b.Name is "ArmOutput" or "PanicStop").All(InViewport), "arm and panic remain visible at minimum window size");
+        Check(window.GetVisualDescendants().OfType<TextBox>().Where(b => b.Name == "ActivityLog").All(InViewport), "persistent log remains visible at minimum window size");
+        Check(tabs.Items.Cast<TabItem>().All(InViewport), "all tab headers fit at minimum window size");
+        using (var compactImage = window.CaptureRenderedFrame()) compactImage.Save(Path.Combine(home, "ui-Minimum-size.png"));
+        window.Width = 1200; window.Height = 800;
         // Rebuild after avatar changes: repeated controls must not retain an old parent.
         var oscPanel = typeof(MainWindow).GetMethod("OscPanel", BindingFlags.NonPublic | BindingFlags.Instance);
         var rebuilt = (Control)oscPanel.Invoke(window, null);

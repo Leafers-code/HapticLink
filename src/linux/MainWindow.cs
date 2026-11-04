@@ -19,13 +19,18 @@ public sealed class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly TextBlock _connection = Text("Enter your phone's Game Mode IP address."), _output = Text("0%"), _state = Text("DISARMED");
     private readonly TextBlock[] _status = new TextBlock[5];
-    private readonly ProgressBar[] _meters = new ProgressBar[5];
+    private readonly SignalMeter[] _meters = new SignalMeter[5];
+    private readonly TextBlock[] _levels = new TextBlock[5];
+    private readonly Border[] _dots = new Border[5];
+    private readonly TextBlock _connectionPillText = Text("DISCONNECTED"), _outputLevel = Text("0 / 20");
+    private Border _connectionPill;
+    private readonly HistoryChart _history = new() { Height = 52 };
     private EqualizerPanel _equalizer;
     private OverlayWindow _overlay;
     private readonly TextBlock _eventEndpoint = Text(""), _eventHistory = Text(""), _gameStatus = Text("No game selected"), _overlayStatus = Text("");
-    private readonly ProgressBar _outputMeter = new() { Minimum = 0, Maximum = 100, Height = 10 };
+    private readonly SignalMeter _outputMeter = new() { Height = 18 };
     private readonly Button _arm = new() { Content = "ARM OUTPUT", HorizontalAlignment = HorizontalAlignment.Stretch };
-    private readonly TextBox _log = new() { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 380 };
+    private readonly TextBox _log = new() { Name = "ActivityLog", IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, Height = 92, FontSize = 11, Foreground = Classic.Muted, BorderThickness = new Thickness(0), Background = Brushes.Transparent };
     private readonly TextBox _host;
     private readonly ComboBox _toys = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private StackPanel _params;
@@ -38,42 +43,88 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "HapticLink · " + (OperatingSystem.IsWindows() ? "Windows" : "Linux") + " 1.2 preview"; Width = 1280; Height = 860; MinWidth = 1100; MinHeight = 620;
-        Background = new SolidColorBrush(Color.Parse("#11151C"));
+        Title = "HapticLink · 1.2.1 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Background = Classic.Background;
         _engine = new Engine(_s);
-        _host = new TextBox { Text = _s.Host, Watermark = "192.168.1.42" };
-        var root = new Grid { ColumnDefinitions = new ColumnDefinitions("290,*"), Margin = new Thickness(24) };
-        var left = Panel(); left.Margin = new Thickness(0, 0, 22, 0);
-        left.Children.Add(new TextBlock { Text = "HapticLink", FontSize = 29, FontWeight = FontWeight.Bold });
-        left.Children.Add(Text("Game signals, connected."));
-        left.Children.Add(Heading("CONNECTION")); left.Children.Add(_host);
-        left.Children.Add(Row(Button("Connect", Connect), Button("Scan LAN", Scan)));
-        left.Children.Add(_connection); left.Children.Add(_toys);
-        _toys.SelectionChanged += (_, _) => { if (_toys.SelectedItem is Choice c) _s.ToyId = c.Id; };
-        left.Children.Add(Button("Refresh devices", async () => { await _engine.Client.RefreshToysAsync(); RefreshToys(); }));
-        left.Children.Add(Heading("OUTPUT"));
-        _output.FontSize = 44; _output.FontWeight = FontWeight.Bold;
-        left.Children.Add(_output); left.Children.Add(_outputMeter); left.Children.Add(_state);
-        _arm.Click += (_, _) => ToggleArm(); left.Children.Add(_arm);
-        var panic = Button("PANIC — STOP", () => { _engine.Panic(); return Task.CompletedTask; });
-        panic.Background = new SolidColorBrush(Color.Parse("#B83247"));
-        left.Children.Add(panic);
-        left.Children.Add(Button("Test 25% · 2 seconds", () => { _engine.Test(.25, 2); return Task.CompletedTask; }));
-        AddSlider(left, "Master cap", 0, 1, _s.MasterCap, x => _s.MasterCap = x, "P0");
-        AddEnum(left, "Mix mode", _s.Mix, x => _s.Mix = x);
-        left.Children.Add(Text("Global stop: bind Ctrl+Alt+X in your desktop settings to HapticLink --panic."));
-        root.Children.Add(new ScrollViewer { Content = left, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+        _host = new TextBox { Text = _s.Host, Watermark = "192.168.1.42", MinWidth = 0 };
+        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(10) };
 
-        var tabs = new TabControl { Margin = new Thickness(0, 0, 0, 0), FontSize = 16 };
-        tabs.Items.Add(new TabItem { Header = "Manual", Content = Scroll(ManualPanel()) });
-        tabs.Items.Add(new TabItem { Header = "Audio", Content = Scroll(AudioPanel()) });
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        var brand = Row(new TextBlock { Text = "HAPTICLINK", FontSize = 17, FontWeight = FontWeight.Bold, Foreground = Classic.Accent }, Text("game → toy bridge"));
+        brand.VerticalAlignment = VerticalAlignment.Center;
+        header.Children.Add(brand);
+        _connectionPillText.FontSize = 11; _connectionPillText.FontWeight = FontWeight.SemiBold;
+        _connectionPill = new Border { Child = _connectionPillText, CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), Padding = new Thickness(12, 3), BorderBrush = Classic.Danger, Background = Classic.Brush("#2A1D1D") };
+        _connectionPillText.Foreground = Classic.Danger;
+        _state.FontSize = 11; _state.FontWeight = FontWeight.SemiBold;
+        var status = Row(_connectionPill, _state); status.HorizontalAlignment = HorizontalAlignment.Center; status.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(status, 1); header.Children.Add(status);
+        _arm.Name = "ArmOutput"; _arm.MinWidth = 130; _arm.FontWeight = FontWeight.SemiBold; _arm.Padding = new Thickness(18, 6);
+        _arm.Click += (_, _) => ToggleArm();
+        var panic = Button("PANIC — STOP", () => { _engine.Panic(); return Task.CompletedTask; });
+        panic.Name = "PanicStop"; panic.Classes.Add("danger"); panic.Padding = new Thickness(18, 6); panic.FontWeight = FontWeight.SemiBold;
+        var actions = Row(_arm, panic); Grid.SetColumn(actions, 2); header.Children.Add(actions);
+        var headerCard = Card(header); headerCard.Padding = new Thickness(14, 10); headerCard.Margin = new Thickness(0, 0, 0, 10); root.Children.Add(headerCard);
+
+        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("330,*") }; Grid.SetRow(body, 1); root.Children.Add(body);
+        var left = Panel(); left.Spacing = 10;
+        var connection = Panel(); connection.Children.Add(Heading("CONNECTION"));
+        connection.Children.Add(Text("Phone / PC running Lovense Game Mode"));
+        connection.Children.Add(Columns(_host, Button("Scan LAN", Scan)));
+        connection.Children.Add(Columns(Button("Connect", Connect), Button("Disconnect", async () =>
+        {
+            _engine.Arm(false); await _engine.Client.StopAsync(); _engine.Client.Disconnect();
+            _connection.Text = "Disconnected."; RefreshToys();
+        }), true));
+        connection.Children.Add(Text("Toy")); connection.Children.Add(_toys);
+        _toys.SelectionChanged += (_, _) => { if (_toys.SelectedItem is Choice c) _s.ToyId = c.Id; };
+        AddEnum(connection, "Function", new[] { "Vibrate", "Rotate", "Pump", "Thrusting", "Suction", "Oscillate", "All" }, _s.Action, x => _s.Action = x, 66);
+        connection.Children.Add(Columns(Button("Test 25% · 2 s", () => { _engine.Test(.25, 2); return Task.CompletedTask; }), Button("Refresh toys", async () => { await _engine.Client.RefreshToysAsync(); RefreshToys(); }), true));
+        _connection.FontSize = 11; _connection.Margin = new Thickness(0, 3, 0, 0); connection.Children.Add(_connection);
+        left.Children.Add(Card(connection));
+
+        var output = Panel(); output.Children.Add(Heading("OUTPUT"));
+        _output.FontSize = 26; _output.FontWeight = FontWeight.Bold; _output.FontFamily = Classic.Mono; _output.Foreground = Classic.Text;
+        _outputLevel.FontFamily = Classic.Mono; _outputLevel.HorizontalAlignment = HorizontalAlignment.Right;
+        output.Children.Add(Columns(_output, _outputLevel)); output.Children.Add(_outputMeter); output.Children.Add(_history);
+        AddSlider(output, "Master cap", 0, 1, _s.MasterCap, x => _s.MasterCap = x, "P0", 85);
+        AddSlider(output, "Update rate", 1, 20, _s.UpdateHz, x => _s.UpdateHz = (int)Math.Round(x), "0' Hz'", 85, 1);
+        AddSlider(output, "Auto-stop", 0, 240, _s.MaxContinuousMinutes, x => _s.MaxContinuousMinutes = (int)Math.Round(x), "0' min'", 85, 1);
+        AddEnum(output, "Mix mode", _s.Mix, x => _s.Mix = x, 85);
+        output.Children.Add(Text("Ctrl+Alt+X  panic  ·  Ctrl+Alt+A  arm\nGlobal shortcuts: see Settings"));
+        left.Children.Add(Card(output));
+        body.Children.Add(new ScrollViewer { Content = left, Margin = new Thickness(0, 0, 10, 0), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+
+        var right = new Grid { RowDefinitions = new RowDefinitions("Auto,*") }; Grid.SetColumn(right, 1); body.Children.Add(right);
+        var sources = Panel(); sources.Children.Add(Heading("SOURCE LEVELS"));
+        var sourceNames = new[] { "Controller", "Game audio", "VRChat OSC", "Manual", "Events" };
+        for (int i = 0; i < 5; i++)
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("82,*,48,12"), Height = 22 };
+            row.Children.Add(Text(sourceNames[i]));
+            _meters[i] = new SignalMeter { Height = 12, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(_meters[i], 1); row.Children.Add(_meters[i]);
+            _levels[i] = Text("0%"); _levels[i].FontFamily = Classic.Mono; _levels[i].HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetColumn(_levels[i], 2); row.Children.Add(_levels[i]);
+            _dots[i] = new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Classic.Line, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(_dots[i], 3); row.Children.Add(_dots[i]); sources.Children.Add(row);
+        }
+        var sourceCard = Card(sources); sourceCard.Margin = new Thickness(0, 0, 0, 10); right.Children.Add(sourceCard);
+        var tabs = new TabControl { FontSize = 12, Padding = new Thickness(0) };
         tabs.Items.Add(new TabItem { Header = "Controller", Content = Scroll(RumblePanel()) });
+        tabs.Items.Add(new TabItem { Header = "Audio", Content = Scroll(AudioPanel()) });
+        _oscTab.Content = Scroll(OscPanel()); tabs.Items.Add(_oscTab);
+        tabs.Items.Add(new TabItem { Header = "Manual", Content = Scroll(ManualPanel()) });
         tabs.Items.Add(new TabItem { Header = "Events", Content = Scroll(EventsPanel()) });
         tabs.Items.Add(new TabItem { Header = "Overlay", Content = Scroll(OverlayPanel()) });
-        _oscTab.Content = Scroll(OscPanel()); tabs.Items.Add(_oscTab);
+        _equalizer = new EqualizerPanel(_s, _engine.Audio);
+        tabs.Items.Add(new TabItem { Header = "EQ", Content = Scroll(_equalizer) });
         tabs.Items.Add(new TabItem { Header = "Settings", Content = Scroll(SettingsPanel()) });
-        tabs.Items.Add(new TabItem { Header = "Log", Content = Scroll(_log) });
-        Grid.SetColumn(tabs, 1); root.Children.Add(tabs); Content = root;
+        var tabCard = Card(tabs); tabCard.Padding = new Thickness(6); Grid.SetRow(tabCard, 1); right.Children.Add(tabCard);
+        var logPanel = Panel(); logPanel.Spacing = 3; logPanel.Children.Add(Heading("LOG")); logPanel.Children.Add(_log);
+        var logCard = Card(logPanel); logCard.Padding = new Thickness(10, 8); logCard.Margin = new Thickness(0, 10, 0, 0); Grid.SetRow(logCard, 2); root.Children.Add(logCard);
+        Content = root;
         _engine.Updated += state => _latest = state;
         Log.Line += OnLog;
         _timer.Tick += (_, _) => Refresh();
@@ -121,10 +172,9 @@ public sealed class MainWindow : Window
 
     private StackPanel SourcePanel(int index, string title, string description)
     {
-        var p = Panel(); p.Children.Add(Heading(title)); p.Children.Add(Text(description));
-        p.Children.Add(Check("Enable source", _engine.SettingsFor(index).Enabled, x => _engine.SetSourceEnabled(index, x)));
-        _meters[index] = new ProgressBar { Minimum = 0, Maximum = 100, Height = 8 };
-        _status[index] = Text("Idle"); p.Children.Add(_meters[index]); p.Children.Add(_status[index]);
+        var p = Panel(); p.Children.Add(Columns(Heading(title), Check("Enable source", _engine.SettingsFor(index).Enabled, x => _engine.SetSourceEnabled(index, x))));
+        p.Children.Add(Text(description));
+        _status[index] = Text("Idle"); _status[index].FontFamily = Classic.Mono; p.Children.Add(_status[index]);
         return p;
     }
     private void Shape(StackPanel p, SourceSettings s)
@@ -147,38 +197,42 @@ public sealed class MainWindow : Window
     }
     private StackPanel AudioPanel()
     {
-        var p = SourcePanel(1, "GAME AUDIO", "Capture your output monitor through PipeWire or PulseAudio.");
-        if (OperatingSystem.IsWindows()) p.Children.Add(Text("Windows uses WASAPI output-device capture. The EQ, overlay and game-focus pause work here; per-application audio isolation currently requires Linux."));
+        var p = SourcePanel(1, "GAME AUDIO", OperatingSystem.IsWindows() ? "Use game audio from your chosen WASAPI output device." : "Capture an output monitor or application through PipeWire / PulseAudio.");
         var choices = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         choices.Items.Add(new Choice("", "Default output monitor"));
         if (_s.AudioDeviceId.Length > 0) choices.Items.Add(new Choice(_s.AudioDeviceId, _s.AudioDeviceId));
         choices.SelectedIndex = choices.Items.Count - 1;
         choices.SelectionChanged += (_, _) => { if (choices.SelectedItem is Choice c) _s.AudioDeviceId = c.Id; };
-        p.Children.Add(choices);
+        p.Children.Add(Columns(choices, Button("Refresh", async () =>
+        {
+            var devices = await Task.Run(AudioSource.ListDevices);
+            SetChoices(choices, devices, _s.AudioDeviceId, "Default output monitor");
+        })));
         var modeLabels = new[] { "Chosen output device", "One application", "Selected game window" };
-        AddEnum(p, "Capture", modeLabels, modeLabels[(int)_s.AudioCaptureMode], x => _s.AudioCaptureMode = (AudioCaptureMode)Array.IndexOf(modeLabels, x));
+        if (!OperatingSystem.IsWindows()) AddEnum(p, "Capture", modeLabels, modeLabels[(int)_s.AudioCaptureMode], x => _s.AudioCaptureMode = (AudioCaptureMode)Array.IndexOf(modeLabels, x));
+        else if (_s.AudioCaptureMode != AudioCaptureMode.OutputMonitor)
+        {
+            p.Children.Add(Text("The saved application capture mode requires Linux. Select output-device capture to use audio on Windows."));
+            p.Children.Add(Button("Use output-device capture", () => { _s.AudioCaptureMode = AudioCaptureMode.OutputMonitor; _engine.RestartSource(1); return Task.CompletedTask; }));
+        }
         var apps = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         apps.SelectionChanged += (_, _) => { if (apps.SelectedItem is AudioApplication a) { _s.AudioProcessId = a.ProcessId; _s.AudioStreamIndex = a.Stream; } };
-        p.Children.Add(apps);
-        p.Children.Add(Button("Refresh playing applications", async () =>
+        if (!OperatingSystem.IsWindows()) p.Children.Add(apps);
+        if (!OperatingSystem.IsWindows()) p.Children.Add(Button("Refresh playing applications", async () =>
         {
             var applications = await Task.Run(AudioRouting.Applications);
             var selected = _s.AudioProcessId;
             apps.ItemsSource = applications;
             apps.SelectedItem = applications.FirstOrDefault(a => a.ProcessId == selected);
         }));
-        p.Children.Add(Text("Application captures only that app's selected playback stream. SelectedGame follows the game window picked on the Overlay tab. If its audio disappears, capture waits; it does not switch to all desktop audio."));
-        p.Children.Add(Button("Refresh output monitors", async () =>
-        {
-            var devices = await Task.Run(AudioSource.ListDevices);
-            SetChoices(choices, devices, _s.AudioDeviceId, "Default output monitor");
-        }));
+        if (!OperatingSystem.IsWindows()) p.Children.Add(Text("Application captures only that app's selected playback stream. SelectedGame follows the game window picked on the Overlay tab. If its audio disappears, capture waits; it does not switch to all desktop audio."));
         p.Children.Add(Button("Apply / restart audio", () => { _engine.RestartSource(1); return Task.CompletedTask; }));
-        AddEnum(p, "Band", _s.AudioBand, x => _s.AudioBand = x);
+        p.Children.Add(Text("Choose bass, treble or a custom capture frequency range on the EQ tab."));
         AddSlider(p, "Quiet floor (dB)", -90, -1, _s.AudioFloorDb, x => _s.AudioFloorDb = x, "F0");
         AddSlider(p, "Loud ceiling (dB)", -60, 0, _s.AudioCeilDb, x => _s.AudioCeilDb = x, "F0");
-        _equalizer = new EqualizerPanel(_s, _engine.Audio); p.Children.Add(_equalizer);
-        Shape(p, _s.Audio); return p;
+        Shape(p, _s.Audio);
+        if (OperatingSystem.IsWindows()) p.Children.Add(new Expander { Header = "Audio capture help", Content = Text("Windows captures the selected WASAPI output device. Use game-focus pausing on the Overlay tab to pause when you switch away from the game. Per-application audio isolation is available on Linux.") });
+        return p;
     }
     private StackPanel EventsPanel()
     {
@@ -242,25 +296,27 @@ public sealed class MainWindow : Window
     }
     private StackPanel RumblePanel()
     {
-        var p = SourcePanel(0, "CONTROLLER RUMBLE", "Mirrors a physical gamepad through a Linux virtual gamepad and reads the game's rumble.");
+        var p = SourcePanel(0, "CONTROLLER RUMBLE", OperatingSystem.IsWindows() ? "Forward your controller through ViGEm and turn game rumble into haptics." : "Mirror a physical gamepad through a virtual gamepad and read the game's rumble.");
         var choices = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         choices.Items.Add(new Choice(_s.RumbleDevice, _s.RumbleDevice.Length == 0 ? "First accessible gamepad" : _s.RumbleDevice));
         choices.SelectedIndex = 0;
         choices.SelectionChanged += (_, _) => { if (choices.SelectedItem is Choice c) _s.RumbleDevice = c.Id; };
-        p.Children.Add(choices);
-        p.Children.Add(Button("Refresh gamepads", async () =>
+        p.Children.Add(Columns(choices, Button("Refresh", async () =>
         {
             var devices = await Task.Run(() => RumbleSource.ListDevices(_s));
             SetChoices(choices, devices, _s.RumbleDevice, "First accessible gamepad");
-        }));
-        p.Children.Add(Check("Forward controller input", _s.RumblePassthrough, x => _s.RumblePassthrough = x));
-        p.Children.Add(Check("Grab physical gamepad exclusively", _s.RumbleGrab, x => _s.RumbleGrab = x));
+        })));
         p.Children.Add(Button("Apply / restart controller", () => { _engine.RestartSource(0); return Task.CompletedTask; }));
-        p.Children.Add(Text("Requires python3-evdev, /dev/uinput access, and access to the selected gamepad. Select HapticLink in Steam's controller order before launching the game. See README-Linux.md for permissions and Steam Input details."));
-        if (OperatingSystem.IsWindows()) p.Children.Add(Text("Windows uses the recovered ViGEm/XInput bridge. Install ViGEmBus if needed and use HidHide to hide the physical pad from games. The exclusive-grab checkbox above is Linux-only."));
         AddSlider(p, "Heavy motor weight", 0, 2, _s.RumbleLargeWeight, x => _s.RumbleLargeWeight = x);
         AddSlider(p, "Light motor weight", 0, 2, _s.RumbleSmallWeight, x => _s.RumbleSmallWeight = x);
-        Shape(p, _s.Rumble); return p;
+        Shape(p, _s.Rumble);
+        var setup = Panel();
+        setup.Children.Add(Check("Forward controller input", _s.RumblePassthrough, x => _s.RumblePassthrough = x));
+        if (!OperatingSystem.IsWindows()) setup.Children.Add(Check("Grab physical gamepad exclusively", _s.RumbleGrab, x => _s.RumbleGrab = x));
+        setup.Children.Add(Text(OperatingSystem.IsWindows()
+            ? "Install ViGEmBus if needed. Use HidHide to hide the physical controller from games so they receive the virtual controller once."
+            : "Requires python3-evdev, /dev/uinput access and access to the selected gamepad. Select HapticLink in Steam's controller order. See README-Linux.md for setup."));
+        p.Children.Add(new Expander { Header = "Controller setup", Content = setup }); return p;
     }
     private StackPanel OscPanel()
     {
@@ -297,16 +353,14 @@ public sealed class MainWindow : Window
     private StackPanel SettingsPanel()
     {
         var p = Panel(); p.Children.Add(Heading("SETTINGS"));
-        AddNumber(p, "Update rate (Hz)", 1, 20, _s.UpdateHz, x => _s.UpdateHz = x);
-        AddNumber(p, "Auto-stop minutes (0 = off)", 0, 240, _s.MaxContinuousMinutes, x => _s.MaxContinuousMinutes = x);
         AddNumber(p, "Command expiry (seconds)", 1, 10, _s.DeadManSeconds, x => _s.DeadManSeconds = x);
-        AddEnum(p, "Device function", new[] { "Vibrate", "Rotate", "Pump", "Thrusting", "Suction", "Oscillate", "All" }, _s.Action, x => _s.Action = x);
         AddNumber(p, "Phone HTTP port", 1, 65535, _s.HttpPort, x => _s.HttpPort = x);
         AddNumber(p, "Phone HTTPS port", 1, 65535, _s.HttpsPort, x => _s.HttpsPort = x);
         p.Children.Add(Check("Prefer HTTPS", _s.PreferHttps, x => _s.PreferHttps = x));
         AddField(p, "Python executable", _s.PythonCommand, x => _s.PythonCommand = x);
         p.Children.Add(Button("Save settings", () => { _s.Save(); return Task.CompletedTask; }));
         p.Children.Add(Text("Config and log: " + Settings.Dir));
+        p.Children.Add(Text("Shortcuts in this window: Ctrl+Alt+X panic · Ctrl+Alt+A arm. For desktop-wide keys, bind HapticLink --panic, --toggle-arm, --toggle-overlay or --overlay-interact in your desktop settings."));
         p.Children.Add(Text("Copy a Windows config.json into this folder while HapticLink is closed. Linux audio and gamepad selections must be chosen again. The app always starts disarmed. Global shortcuts are configured in your desktop; --panic also works on Wayland."));
         return p;
     }
@@ -314,10 +368,20 @@ public sealed class MainWindow : Window
     private void Refresh()
     {
         if (_latest is not { } st) return;
-        _output.Text = st.Output.ToString("P0"); _outputMeter.Value = st.Output * 100;
+        _output.Text = st.Output.ToString("P0"); _outputMeter.Value = st.Output; _outputLevel.Text = st.OutputLevel20 + " / 20"; _history.Update(_engine.OutputHistory());
         _state.Text = st.Panicked ? "PANIC STOPPED" : st.FocusPaused ? "PAUSED · GAME UNFOCUSED" : st.SafetyTripped ? "AUTO-STOP REACHED" : st.Armed ? "ARMED" : "DISARMED";
         _arm.Content = st.Armed ? "DISARM OUTPUT" : "ARM OUTPUT";
-        for (int i = 0; i < 5; i++) { _meters[i].Value = st.Shaped[i] * 100; _status[i].Text = st.SourceStatus[i]; }
+        _state.Foreground = st.Panicked ? Classic.Danger : st.FocusPaused || st.SafetyTripped ? Classic.Warn : st.Armed ? Classic.Good : Classic.Muted;
+        _arm.Classes.Set("armed", st.Armed);
+        _connectionPillText.Text = st.Connected ? "CONNECTED" : "DISCONNECTED";
+        _connectionPillText.Foreground = _connectionPill.BorderBrush = st.Connected ? Classic.Good : Classic.Danger;
+        _connectionPill.Background = Classic.Brush(st.Connected ? "#192B23" : "#2A1D1D");
+        for (int i = 0; i < 5; i++)
+        {
+            _meters[i].Value = st.Shaped[i]; _levels[i].Text = st.Shaped[i].ToString("P0"); _status[i].Text = st.SourceStatus[i];
+            _dots[i].Background = st.SourceRunning[i] ? Classic.Good : _engine.SettingsFor(i).Enabled ? Classic.Warn : Classic.Line;
+            ToolTip.SetTip(_dots[i], st.SourceStatus[i]);
+        }
         _equalizer.Refresh();
         _eventEndpoint.Text = _engine.Events.Endpoint;
         _gameStatus.Text = _engine.Game.State.Status + (_engine.Game.State.Window is { } game ? " · " + game.Title : "");
@@ -402,10 +466,18 @@ public sealed class MainWindow : Window
         combo.ItemsSource = choices;
         combo.SelectedItem = choices.FirstOrDefault(c => c.Id == selected) ?? choices[0];
     }
-    private static TextBlock Text(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightGray, MaxWidth = 700, HorizontalAlignment = HorizontalAlignment.Left };
-    private static TextBlock Heading(string text) => new() { Text = text, FontWeight = FontWeight.Bold, FontSize = 15, Margin = new Thickness(0, 16, 0, 4) };
-    private static StackPanel Panel() => new() { Spacing = 10 };
-    private static ScrollViewer Scroll(Control content) => new() { Content = content, Padding = new Thickness(16), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+    private static TextBlock Text(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Classic.Muted, FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+    private static TextBlock Heading(string text) => new() { Text = text, FontWeight = FontWeight.SemiBold, Foreground = Classic.Muted, FontSize = 11, Margin = new Thickness(0, 2, 0, 5) };
+    private static StackPanel Panel() => new() { Spacing = 4 };
+    private static Border Card(Control child) => new() { Child = child, Background = Classic.Panel, BorderBrush = Classic.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12) };
+    private static ScrollViewer Scroll(Control content) => new() { Content = content, Padding = new Thickness(10), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+    private static Grid Columns(Control first, Control second, bool equal = false)
+    {
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions(equal ? "*,*" : "*,Auto"), ColumnSpacing = 6 };
+        if (first is Button) first.HorizontalAlignment = HorizontalAlignment.Stretch;
+        if (second is Button) second.HorizontalAlignment = HorizontalAlignment.Stretch;
+        row.Children.Add(first); Grid.SetColumn(second, 1); row.Children.Add(second); return row;
+    }
     private static StackPanel Row(params Control[] controls)
     {
         var p = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -413,7 +485,7 @@ public sealed class MainWindow : Window
     }
     private static Button Button(string title, Func<Task> action)
     {
-        var b = new Button { Content = title, HorizontalAlignment = HorizontalAlignment.Stretch };
+        var b = new Button { Content = title, HorizontalAlignment = HorizontalAlignment.Left };
         b.Click += async (_, _) =>
         {
             b.IsEnabled = false;
@@ -423,32 +495,40 @@ public sealed class MainWindow : Window
     }
     private static CheckBox Check(string title, bool value, Action<bool> changed)
     {
-        var c = new CheckBox { Content = Text(title), IsChecked = value };
+        var c = new CheckBox { Content = new TextBlock { Text = title, TextWrapping = TextWrapping.Wrap }, IsChecked = value };
         c.IsCheckedChanged += (_, _) => changed(c.IsChecked == true); return c;
     }
-    private static void AddSlider(StackPanel panel, string label, double min, double max, double value, Action<double> changed, string format = "F2")
+    private static void AddSlider(StackPanel panel, string label, double min, double max, double value, Action<double> changed, string format = "F2", double labelWidth = 140, double step = 0)
     {
-        var caption = Text(label + " · " + value.ToString(format));
-        var slider = new Slider { Minimum = min, Maximum = max, Value = Math.Clamp(value, min, max) };
-        slider.ValueChanged += (_, _) => { caption.Text = label + " · " + slider.Value.ToString(format); changed(slider.Value); };
-        panel.Children.Add(caption); panel.Children.Add(slider);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions($"{labelWidth},*,64"), MinHeight = 22 };
+        row.Children.Add(Text(label));
+        var amount = Text(value.ToString(format)); amount.FontFamily = Classic.Mono; amount.Foreground = Classic.Text; amount.HorizontalAlignment = HorizontalAlignment.Right;
+        var slider = new Slider { Minimum = min, Maximum = max, Value = Math.Clamp(value, min, max), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0) };
+        if (step > 0) { slider.TickFrequency = step; slider.IsSnapToTickEnabled = true; }
+        slider.ValueChanged += (_, _) => { amount.Text = slider.Value.ToString(format); changed(slider.Value); };
+        Grid.SetColumn(slider, 1); row.Children.Add(slider); Grid.SetColumn(amount, 2); row.Children.Add(amount); panel.Children.Add(row);
+    }
+    private static void FieldRow(StackPanel p, string label, Control control, double labelWidth = 140)
+    {
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions($"{labelWidth},*"), ColumnSpacing = 8, MinHeight = 29 };
+        row.Children.Add(Text(label)); control.HorizontalAlignment = HorizontalAlignment.Stretch;
+        Grid.SetColumn(control, 1); row.Children.Add(control); p.Children.Add(row);
     }
     private static void AddNumber(StackPanel p, string label, int min, int max, int value, Action<int> changed)
     {
-        p.Children.Add(Text(label));
         var n = new NumericUpDown { Minimum = min, Maximum = max, Value = Math.Clamp(value, min, max), Increment = 1, FormatString = "F0" };
-        n.ValueChanged += (_, _) => { if (n.Value is { } v) changed((int)v); }; p.Children.Add(n);
+        n.ValueChanged += (_, _) => { if (n.Value is { } v) changed((int)v); }; FieldRow(p, label, n);
     }
     private static void AddField(StackPanel p, string label, string value, Action<string> changed)
     {
-        p.Children.Add(Text(label)); var box = new TextBox { Text = value };
-        box.TextChanged += (_, _) => changed(box.Text ?? ""); p.Children.Add(box);
+        var box = new TextBox { Text = value };
+        box.TextChanged += (_, _) => changed(box.Text ?? ""); FieldRow(p, label, box);
     }
-    private static void AddEnum<T>(StackPanel p, string label, T value, Action<T> changed) where T : struct, Enum
-        => AddEnum(p, label, Enum.GetValues<T>(), value, changed);
-    private static void AddEnum<T>(StackPanel p, string label, IEnumerable<T> values, T value, Action<T> changed)
+    private static void AddEnum<T>(StackPanel p, string label, T value, Action<T> changed, double labelWidth = 140) where T : struct, Enum
+        => AddEnum(p, label, Enum.GetValues<T>(), value, changed, labelWidth);
+    private static void AddEnum<T>(StackPanel p, string label, IEnumerable<T> values, T value, Action<T> changed, double labelWidth = 140)
     {
-        p.Children.Add(Text(label)); var box = new ComboBox { ItemsSource = values, SelectedItem = value, HorizontalAlignment = HorizontalAlignment.Stretch };
-        box.SelectionChanged += (_, _) => { if (box.SelectedItem is T v) changed(v); }; p.Children.Add(box);
+        var box = new ComboBox { ItemsSource = values, SelectedItem = value };
+        box.SelectionChanged += (_, _) => { if (box.SelectedItem is T v) changed(v); }; FieldRow(p, label, box, labelWidth);
     }
 }

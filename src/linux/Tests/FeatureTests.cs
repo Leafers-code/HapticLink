@@ -117,6 +117,17 @@ internal static partial class Tests
         Check(Math.Abs(bypassed / flat - 1) < .02, "EQ bypass restores flat analysis");
         s.AudioEqEnabled = true; s.AudioEqGainsDb[5] = -12; var cut = Energy(eq, s, 1000);
         Check(cut < flat * .08, "EQ attenuation reduces band energy");
+        s.AudioEqEnabled = false; s.AudioBand = AudioBand.Bass;
+        var bassPass = Energy(eq, s, 80); var bassReject = Energy(eq, s, 2000);
+        Check(bassPass > flat * .8 && bassReject < bassPass * .001, "bass-only capture passes bass and rejects midrange audio");
+        s.AudioBand = AudioBand.Custom; s.AudioCaptureLowHz = 400; s.AudioCaptureHighHz = 800;
+        var customPass = Energy(eq, s, 600);
+        Check(customPass > flat * .7 && Energy(eq, s, 80) < customPass * .001 && Energy(eq, s, 4000) < customPass * .001, "custom capture range rejects audio above and below its selected band");
+        s.AudioCaptureLowHz = 2000; s.AudioCaptureHighHz = 5000;
+        Check(Energy(eq, s, 600) < customPass * .001 && Energy(eq, s, 3000) > flat * .8, "changing the capture range applies live without restarting audio");
+        s.AudioBand = AudioBand.Loudness;
+        Check(Math.Abs(Energy(eq, s, 80) / flat - 1) < .02, "full-range capture restores the unfiltered signal");
+        Check(AudioFrequencyRange.Normalize(30000, -1) == (19990d, 20000d) && AudioFrequencyRange.Normalize(double.NaN, double.NaN) == (20d, 20000d), "capture cutoffs remain ordered and finite for malformed settings");
         var apps = AudioRouting.ParseApplications("[{\"index\":7,\"sink\":2,\"properties\":{\"application.process.id\":\"123\",\"application.name\":\"Game\"}}]");
         Check(apps.Single().ProcessId == 123 && apps.Single().Stream == 7, "application audio metadata preserves PID and stream index");
         var windows = GameFocus.ParseWindows("0x00200001  0 123 10 20 1280 720 host My Game Window\n");

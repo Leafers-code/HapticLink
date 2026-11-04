@@ -19,7 +19,6 @@ public sealed class AudioSource : SourceBase
     private readonly HapticEqualizer _eq = new();
     public double[] Spectrum => _eq.Levels;
     private DateTime _lastData;
-    private readonly double[] _lp1 = new double[2], _lp2 = new double[2], _hp = new double[2];
     public AudioSource(Settings s, GameFocus focus = null) { _s = s; _focus = focus ?? new GameFocus(s); }
 
     public static List<(string Id, string Name)> ListDevices()
@@ -65,7 +64,7 @@ public sealed class AudioSource : SourceBase
                     var target = AudioRouting.Resolve(_s, _focus);
                     ct.ThrowIfCancellationRequested();
                     if (target == null) { Raw = 0; Status = "Waiting for audio from the selected application/game"; await Task.Delay(750, ct); continue; }
-                    Array.Clear(_lp1); Array.Clear(_lp2); Array.Clear(_hp); _eq.Reset();
+                    _eq.Reset();
                     var args = new List<string> { "--raw", "--format=float32le", "--rate=48000", "--channels=2", "--latency-msec=20", "--device=" + target.Monitor };
                     if (target.Stream is { } index) args.Add("--monitor-stream=" + index);
                     process = LinuxProcess.Start("parec", args.ToArray()); _process = process;
@@ -115,26 +114,13 @@ public sealed class AudioSource : SourceBase
     {
         double sum = 0;
         _eq.Configure(_s);
-        double lp = Coef(180), hp = Coef(2500);
         for (int off = 0; off + 8 <= buffer.Length; off += 8)
             for (int c = 0; c < 2; c++)
             {
                 double sample = System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(buffer.AsSpan(off + c * 4, 4));
                 if (!double.IsFinite(sample)) sample = 0;
                 sample = _eq.Process(sample, c);
-                double value;
-                switch (_s.AudioBand)
-                {
-                    case AudioBand.Bass:
-                        _lp1[c] += (sample - _lp1[c]) * lp;
-                        _lp2[c] += (_lp1[c] - _lp2[c]) * lp;
-                        value = _lp2[c]; break;
-                    case AudioBand.Treble:
-                        _hp[c] += (sample - _hp[c]) * hp;
-                        value = sample - _hp[c]; break;
-                    default: value = sample; break;
-                }
-                sum += value * value;
+                sum += sample * sample;
             }
         var rms = Math.Sqrt(sum / Math.Max(1, buffer.Length / 4));
         var db = 20 * Math.Log10(rms + 1e-9);
@@ -143,7 +129,6 @@ public sealed class AudioSource : SourceBase
         _eq.FinishBuffer(buffer.Length / 4);
     }
 
-    private static double Coef(double cutoff) { var dt = 1d / 48000; return dt / (1 / (2 * Math.PI * cutoff) + dt); }
     public override void Tick(double dtMs)
     {
 #if WINDOWS_BACKEND
@@ -162,7 +147,6 @@ public sealed class AudioSource : SourceBase
         _process?.Dispose(); _process = null;
         _cts?.Dispose(); _cts = null;
         Running = false; Raw = 0;
-        Array.Clear(_lp1); Array.Clear(_lp2); Array.Clear(_hp);
         _eq.Reset();
         if (Available) Status = "Stopped";
     }

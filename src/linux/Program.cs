@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Themes.Fluent;
 using Avalonia.Styling;
+using Avalonia.Markup.Xaml.Styling;
 using HapticLink.Core;
 
 namespace HapticLink;
@@ -41,6 +42,7 @@ public sealed class App : Application
     {
         RequestedThemeVariant = ThemeVariant.Dark;
         Styles.Add(new FluentTheme());
+        Styles.Add(new StyleInclude(new Uri("avares://HapticLink/")) { Source = new Uri("avares://HapticLink/ClassicTheme.axaml") });
     }
     public override void OnFrameworkInitializationCompleted()
     {
