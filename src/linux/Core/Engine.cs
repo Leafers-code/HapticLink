@@ -44,6 +44,7 @@ namespace HapticLink.Core
         public OscSource Osc { get; }
         public ManualSource Manual { get; }
         public IntegrationSource Events { get; }
+        public PluginManager Plugins { get; }
         public GameFocus Game { get; }
 
         private readonly SourceBase[] _sources;
@@ -92,7 +93,8 @@ namespace HapticLink.Core
             Audio = new AudioSource(s, Game);
             Osc = new OscSource(s);
             Manual = new ManualSource(s);
-            Events = new IntegrationSource(s);
+            Plugins = new PluginManager(s);
+            Events = new IntegrationSource(s, Plugins);
             _sources = new SourceBase[] { Rumble, Audio, Osc, Manual, Events };
         }
 

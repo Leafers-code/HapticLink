@@ -123,6 +123,9 @@ internal static partial class Tests
         s.AudioBand = AudioBand.Custom; s.AudioCaptureLowHz = 400; s.AudioCaptureHighHz = 800;
         var customPass = Energy(eq, s, 600);
         Check(customPass > flat * .7 && Energy(eq, s, 80) < customPass * .001 && Energy(eq, s, 4000) < customPass * .001, "custom capture range rejects audio above and below its selected band");
+        s.AudioFrequencyCaptureEnabled = false;
+        Check(Math.Abs(Energy(eq, s, 80) / flat - 1) < .02 && AudioFrequencyRange.Selected(s) == (400d, 800d), "frequency plugin bypasses filtering without losing the selected range");
+        s.AudioFrequencyCaptureEnabled = true;
         s.AudioCaptureLowHz = 2000; s.AudioCaptureHighHz = 5000;
         Check(Energy(eq, s, 600) < customPass * .001 && Energy(eq, s, 3000) > flat * .8, "changing the capture range applies live without restarting audio");
         s.AudioBand = AudioBand.Loudness;

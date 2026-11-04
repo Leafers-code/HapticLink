@@ -2,6 +2,10 @@
 
 HapticLink 1.2 adds an input bridge for integrations that use the Buttplug protocol, a direct HTTP game-event input, Counter-Strike 2 GSI, application audio selection, game-window focus, a transparent desktop overlay and a ten-band haptics EQ. The updated app also builds for Windows with WASAPI output capture and ViGEm/XInput rumble; per-application audio isolation is Linux-only. The original Windows WPF source remains separate and unchanged. See [Windows setup](README-Windows.md).
 
+## Plugin manager
+
+Use **Plugins → Available** to install a CS2, Intiface/Buttplug or HTTP-event profile. Installed profiles have dedicated endpoints, editable mappings and enable/disable controls. Existing root endpoints remain available. See [PLUGINS.md](PLUGINS.md) for setup, imports and profile format.
+
 ## Using apps from the Intiface ecosystem
 
 1. Connect HapticLink to Lovense Remote as usual.

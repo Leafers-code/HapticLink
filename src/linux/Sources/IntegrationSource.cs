@@ -16,14 +16,15 @@ public sealed class IntegrationSource : SourceBase
 {
     public override string Name => "Game events";
     private readonly Settings _s;
+    private readonly PluginManager _plugins;
     private CancellationTokenSource _cts;
     private Task _runner;
     private readonly ConcurrentDictionary<Guid, Session> _clients = new();
-    private readonly ConcurrentDictionary<string, (double level, long until)> _pulses = new();
+    private readonly ConcurrentDictionary<string, (double level, long until, string profile)> _pulses = new();
     private readonly ConcurrentDictionary<string, long> _cooldowns = new();
     private readonly ConcurrentQueue<string> _history = new();
     private readonly object _gsiGate = new();
-    private Cs2Snapshot _lastCs2;
+    private readonly Dictionary<string, Cs2Snapshot> _cs2 = new();
     private long _sequence;
     private long _stopRevision;
     private int _activePort;
@@ -32,7 +33,21 @@ public sealed class IntegrationSource : SourceBase
     public string[] EventHistory => _history.ToArray();
     public int ClientCount => _clients.Count;
     public string Endpoint => $"ws://127.0.0.1:{(Running ? _activePort : _s.IntegrationPort)}";
-    public IntegrationSource(Settings s) => _s = s;
+    public IntegrationSource(Settings s, PluginManager plugins = null)
+    {
+        _s = s; _plugins = plugins ?? new PluginManager(s); _plugins.Changed += ProfileChanged;
+    }
+    public int ActivePort => Running ? _activePort : _s.IntegrationPort;
+    private void ProfileChanged(string id) => ClearProfile(id, true);
+    private void ClearProfile(string id, bool disconnect)
+    {
+        foreach (var entry in _pulses) if (entry.Value.profile == id) _pulses.TryRemove(entry.Key, out _);
+        foreach (var key in _cooldowns.Keys) if (key.StartsWith(id + "\0", StringComparison.Ordinal)) _cooldowns.TryRemove(key, out _);
+        foreach (var session in _clients.Values) if (session.ProfileId == id) { session.Level = 0; if (disconnect) session.Socket.Abort(); }
+        lock (_gsiGate) _cs2.Remove(id);
+        Interlocked.Increment(ref _stopRevision); Tick(0);
+    }
+    private void StopSession(Session session) { if (session.ProfileId == null) Clear(); else ClearProfile(session.ProfileId, false); }
 
     public override void Start()
     {
@@ -51,13 +66,10 @@ public sealed class IntegrationSource : SourceBase
                 app.MapGet("/status", () => Results.Json(new { name = "HapticLink", clients = ClientCount, lastEvent = LastEvent, level = Raw }));
                 app.MapPost("/event", context => EventRequest(context, false));
                 app.MapPost("/cs2", context => EventRequest(context, true));
-                app.Map("/", async context =>
-                {
-                    if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
-                    if (_clients.Count >= 8) { context.Response.StatusCode = 503; return; }
-                    using var socket = await context.WebSockets.AcceptWebSocketAsync();
-                    await ReceiveClient(socket, token);
-                });
+                app.MapPost("/plugins/{id}/event", context => EventRequest(context, false, context.Request.RouteValues["id"]?.ToString()));
+                app.MapPost("/plugins/{id}/cs2", context => EventRequest(context, true, context.Request.RouteValues["id"]?.ToString()));
+                app.MapGet("/plugins/{id}", context => WebSocketRequest(context, token, context.Request.RouteValues["id"]?.ToString()));
+                app.MapGet("/", context => WebSocketRequest(context, token));
                 await app.StartAsync(token);
                 Running = true; Status = "Listening: " + Endpoint;
                 try { await Task.Delay(Timeout.Infinite, token); } catch (OperationCanceledException) { }
@@ -71,9 +83,19 @@ public sealed class IntegrationSource : SourceBase
         });
     }
 
-    private async Task EventRequest(HttpContext context, bool cs2)
+    private async Task WebSocketRequest(HttpContext context, CancellationToken token, string profileId = null)
     {
         if (!IsLoopback(context.Connection.RemoteIpAddress)) { context.Response.StatusCode = 403; return; }
+        if (profileId != null && _plugins.GetEnabled(profileId, "buttplug") == null) { context.Response.StatusCode = 404; return; }
+        if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
+        if (_clients.Count >= 8) { context.Response.StatusCode = 503; return; }
+        using var socket = await context.WebSockets.AcceptWebSocketAsync(); await ReceiveClient(socket, token, profileId);
+    }
+
+    private async Task EventRequest(HttpContext context, bool cs2, string profileId = null)
+    {
+        if (!IsLoopback(context.Connection.RemoteIpAddress)) { context.Response.StatusCode = 403; return; }
+        if (profileId != null && _plugins.GetEnabled(profileId, cs2 ? "cs2" : "http-events") == null) { context.Response.StatusCode = 404; return; }
         if (!context.Request.HasJsonContentType()) { context.Response.StatusCode = 415; return; }
         if (context.Request.ContentLength > 65536) { context.Response.StatusCode = 413; return; }
         try
@@ -87,13 +109,20 @@ public sealed class IntegrationSource : SourceBase
                 limited.Write(buffer, 0, read);
             }
             using var doc = JsonDocument.Parse(limited.ToArray());
-            if (cs2) ProcessCs2(doc.RootElement);
+            if (cs2) ProcessCs2(doc.RootElement, profileId);
             else
             {
                 var root = doc.RootElement;
                 var name = root.GetProperty("event").GetString();
                 if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new JsonException("Invalid event name");
-                if (root.TryGetProperty("level", out var level))
+                if (profileId != null)
+                {
+                    var profile = _plugins.GetEnabled(profileId, "http-events");
+                    if (profile == null) { context.Response.StatusCode = 404; return; }
+                    if (!profile.Rules.Any(r => r.Event.Equals(name, StringComparison.OrdinalIgnoreCase)) || root.TryGetProperty("level", out _) || root.TryGetProperty("durationMs", out _)) throw new JsonException("Profile endpoints use configured event mappings.");
+                    Trigger(name, profileId);
+                }
+                else if (root.TryGetProperty("level", out var level))
                 {
                     var value = level.GetDouble();
                     var duration = root.TryGetProperty("durationMs", out var d) ? d.GetInt32() : 300;
@@ -109,20 +138,22 @@ public sealed class IntegrationSource : SourceBase
     }
 
     private static bool IsLoopback(IPAddress ip) => ip != null && IPAddress.IsLoopback(ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip);
-    public void Trigger(string name)
+    public void Trigger(string name, string profileId = null)
     {
-        var rule = _s.EventRules?.FirstOrDefault(r => r.Enabled && string.Equals(r.Event, name, StringComparison.OrdinalIgnoreCase));
+        var rules = profileId == null ? _s.EventRules : _plugins.GetEnabled(profileId)?.Rules;
+        var rule = rules?.FirstOrDefault(r => r.Enabled && string.Equals(r.Event, name, StringComparison.OrdinalIgnoreCase));
         if (rule == null) return;
         var now = Environment.TickCount64;
-        if (_cooldowns.TryGetValue(name, out var last) && now - last < Math.Max(0, rule.CooldownMs)) return;
-        _cooldowns[name] = now;
-        Pulse(name, Sig.Clamp01(rule.Level), Math.Clamp(rule.DurationMs, 0, 5000));
+        var key = (profileId ?? "") + "\0" + rule.Event.ToUpperInvariant();
+        if (_cooldowns.TryGetValue(key, out var last) && now - last < Math.Max(0, rule.CooldownMs)) return;
+        _cooldowns[key] = now;
+        Pulse(name, Sig.Clamp01(rule.Level), Math.Clamp(rule.DurationMs, 0, 5000), profileId);
     }
-    private void Pulse(string name, double level, int duration)
+    private void Pulse(string name, double level, int duration, string profileId = null)
     {
-        if (_pulses.Count >= 1024) return;
-        _pulses[Interlocked.Increment(ref _sequence).ToString()] = (level, Environment.TickCount64 + duration);
-        Note(name + " · " + level.ToString("P0") + " · " + duration + " ms");
+        if (_pulses.Count >= 1024 || profileId != null && _plugins.GetEnabled(profileId) == null) return;
+        _pulses[Interlocked.Increment(ref _sequence).ToString()] = (level, Environment.TickCount64 + duration, profileId);
+        Note((profileId == null ? "" : profileId + ": ") + name + " · " + level.ToString("P0") + " · " + duration + " ms");
     }
     private void Note(string text)
     {
@@ -142,10 +173,10 @@ public sealed class IntegrationSource : SourceBase
         var now = Environment.TickCount64;
         double max = 0;
         foreach (var (id, pulse) in _pulses)
-            if (now >= pulse.until) _pulses.TryRemove(id, out _); else max = Math.Max(max, pulse.level);
+            if (now >= pulse.until || pulse.profile != null && _plugins.GetEnabled(pulse.profile) == null) _pulses.TryRemove(id, out _); else max = Math.Max(max, pulse.level);
         var timeout = Math.Clamp(_s.IntegrationTimeoutMs, 1000, 30000);
         foreach (var client in _clients.Values)
-            if (now - Interlocked.Read(ref client.LastPing) > timeout) { client.Level = 0; client.Socket.Abort(); }
+            if (now - Interlocked.Read(ref client.LastPing) > timeout || client.ProfileId != null && _plugins.GetEnabled(client.ProfileId, "buttplug") == null) { client.Level = 0; client.Socket.Abort(); }
             else max = Math.Max(max, client.Level);
         Raw = Sig.Clamp01(max);
         Status = $"{Endpoint} · {ClientCount} client(s) · {LastEvent}";
@@ -154,13 +185,14 @@ public sealed class IntegrationSource : SourceBase
     private sealed class Session
     {
         public WebSocket Socket;
+        public string ProfileId;
         public int Version;
         public double Level;
         public long LastPing = Environment.TickCount64;
     }
-    private async Task ReceiveClient(WebSocket socket, CancellationToken cancellation)
+    private async Task ReceiveClient(WebSocket socket, CancellationToken cancellation, string profileId = null)
     {
-        var id = Guid.NewGuid(); var session = new Session { Socket = socket };
+        var id = Guid.NewGuid(); var session = new Session { Socket = socket, ProfileId = profileId };
         _clients[id] = session;
         try
         {
@@ -184,7 +216,9 @@ public sealed class IntegrationSource : SourceBase
                 {
                     using var doc = JsonDocument.Parse(message.ToArray());
                     if (doc.RootElement.ValueKind != JsonValueKind.Array) throw new JsonException();
-                    foreach (var command in doc.RootElement.EnumerateArray()) Handle(command, session, replies);
+                    foreach (var command in doc.RootElement.EnumerateArray())
+                        if (profileId == null || _plugins.GetEnabled(profileId, "buttplug") != null) Handle(command, session, replies);
+                        else replies.Add(Error(0, "Profile is disabled"));
                 }
                 catch (JsonException) { replies.Add(Error(0, "Expected a Buttplug JSON message array")); }
                 var bytes = JsonSerializer.SerializeToUtf8Bytes(replies);
@@ -232,18 +266,18 @@ public sealed class IntegrationSource : SourceBase
                     var device = Device(session.Version); device["Id"] = 0;
                     replies.Add(Wrap("DeviceAdded", device)); replies.Add(Wrap("ScanningFinished", new { Id = 0 })); return;
                 case "StopScanning": replies.Add(Ok(id)); return;
-                case "StopAllDevices": Clear(); replies.Add(Ok(id)); return;
+                case "StopAllDevices": StopSession(session); replies.Add(Ok(id)); return;
                 case "StopCmd" when session.Version == 4:
                     if (value.TryGetProperty("DeviceIndex", out var stoppedDevice) && stoppedDevice.ValueKind != JsonValueKind.Null && stoppedDevice.GetInt32() != 0) throw new JsonException();
                     if (value.TryGetProperty("FeatureIndex", out var stoppedFeature) && stoppedFeature.ValueKind != JsonValueKind.Null && stoppedFeature.GetInt32() != 0) throw new JsonException();
-                    if (!value.TryGetProperty("Outputs", out var outputs) || outputs.GetBoolean()) Clear();
+                    if (!value.TryGetProperty("Outputs", out var outputs) || outputs.GetBoolean()) StopSession(session);
                     replies.Add(Ok(id)); return;
             }
             if (value.GetProperty("DeviceIndex").GetInt32() != 0) { replies.Add(Error(id, "Unknown device index")); return; }
             double level;
             switch (item.Name)
             {
-                case "StopDeviceCmd": Clear(); replies.Add(Ok(id)); return;
+                case "StopDeviceCmd": StopSession(session); replies.Add(Ok(id)); return;
                 case "ScalarCmd" when session.Version == 3:
                     var scalars = value.GetProperty("Scalars").EnumerateArray().ToArray();
                     if (scalars.Length != 1 || scalars[0].GetProperty("Index").GetInt32() != 0 || scalars[0].GetProperty("ActuatorType").GetString() != "Vibrate") throw new JsonException();
@@ -281,16 +315,17 @@ public sealed class IntegrationSource : SourceBase
     }
 
     private sealed record Cs2Snapshot(string Player, int Health, int Kills, int Deaths, string Weapon, int Ammo, string Round, string WinTeam, string Team);
-    private void ProcessCs2(JsonElement root)
+    private void ProcessCs2(JsonElement root, string profileId = null)
     {
         lock (_gsiGate)
         {
-            if (!root.TryGetProperty("player", out var player) || !player.TryGetProperty("state", out var state)) { _lastCs2 = null; return; }
+            var key = profileId ?? "";
+            if (!root.TryGetProperty("player", out var player) || !player.TryGetProperty("state", out var state)) { _cs2.Remove(key); return; }
             string Str(JsonElement e, string key) => e.TryGetProperty(key, out var v) ? v.ToString() : "";
             int Num(JsonElement e, string key) => e.TryGetProperty(key, out var v) && v.TryGetInt32(out var n) ? n : 0;
             var own = root.TryGetProperty("provider", out var provider) ? Str(provider, "steamid") : "";
             var id = Str(player, "steamid");
-            if (id.Length == 0 || own.Length == 0 || own != id || Str(player, "activity") != "playing") { _lastCs2 = null; return; }
+            if (id.Length == 0 || own.Length == 0 || own != id || Str(player, "activity") != "playing") { _cs2.Remove(key); return; }
             var stats = player.TryGetProperty("match_stats", out var m) ? m : default;
             var round = root.TryGetProperty("round", out var r) ? r : default;
             string weapon = ""; int ammo = 0;
@@ -299,21 +334,22 @@ public sealed class IntegrationSource : SourceBase
             var current = new Cs2Snapshot(id, Num(state, "health"), stats.ValueKind == JsonValueKind.Object ? Num(stats, "kills") : 0,
                 stats.ValueKind == JsonValueKind.Object ? Num(stats, "deaths") : 0, weapon, ammo,
                 round.ValueKind == JsonValueKind.Object ? Str(round, "phase") : "", round.ValueKind == JsonValueKind.Object ? Str(round, "win_team") : "", Str(player, "team"));
-            var last = _lastCs2; _lastCs2 = current;
+            _cs2.TryGetValue(key, out var last); _cs2[key] = current;
             if (last == null || last.Player != id) return;
-            if (current.Kills > last.Kills) Trigger("kill");
-            if (current.Deaths > last.Deaths || current.Health == 0 && last.Health > 0) Trigger("death");
-            else if (current.Health < last.Health && last.Health > 0) Trigger("damage");
-            if (current.Weapon.Length > 0 && current.Weapon == last.Weapon && current.Ammo < last.Ammo) Trigger("shot");
-            if (current.Round == "over" && last.Round != "over" && current.WinTeam.Length > 0 && current.WinTeam == current.Team) Trigger("round_win");
+            if (current.Kills > last.Kills) Trigger("kill", profileId);
+            if (current.Deaths > last.Deaths || current.Health == 0 && last.Health > 0) Trigger("death", profileId);
+            else if (current.Health < last.Health && last.Health > 0) Trigger("damage", profileId);
+            if (current.Weapon.Length > 0 && current.Weapon == last.Weapon && current.Ammo < last.Ammo) Trigger("shot", profileId);
+            if (current.Round == "over" && last.Round != "over" && current.WinTeam.Length > 0 && current.WinTeam == current.Team) Trigger("round_win", profileId);
         }
     }
+    public override void Dispose() { _plugins.Changed -= ProfileChanged; base.Dispose(); }
     public override void Stop()
     {
         _cts?.Cancel(); foreach (var session in _clients.Values) session.Socket.Abort();
         try { _runner?.Wait(3000); } catch { }
         _cts?.Dispose(); _cts = null; _runner = null; Running = false; Clear();
-        lock (_gsiGate) _lastCs2 = null;
+        lock (_gsiGate) _cs2.Clear();
         if (Available) Status = "Stopped";
     }
 }

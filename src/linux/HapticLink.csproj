@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <AssemblyName>HapticLink</AssemblyName>
-    <Version>1.2.1</Version>
+    <Version>1.3.0</Version>
   </PropertyGroup>
   <PropertyGroup Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">
     <DefineConstants>$(DefineConstants);WINDOWS_BACKEND</DefineConstants>
@@ -22,6 +22,6 @@
     <None Update="linux/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="licenses/**/*" CopyToOutputDirectory="PreserveNewest" />
     <None Update="integrations/**/*" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="README-Linux.md;README-Windows.md;INTEGRATIONS.md;VALIDATION.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="README-Linux.md;README-Windows.md;INTEGRATIONS.md;PLUGINS.md;VALIDATION.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

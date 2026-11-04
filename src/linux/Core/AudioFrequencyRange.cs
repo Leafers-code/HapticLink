@@ -10,7 +10,8 @@ public static class AudioFrequencyRange
         return (low, high);
     }
     // Preserve Bass/Treble choices from older configuration files.
-    public static (double Low, double High) For(Settings settings) => settings.AudioBand switch
+    public static (double Low, double High) For(Settings settings) => settings.AudioFrequencyCaptureEnabled ? Selected(settings) : (Minimum, Maximum);
+    public static (double Low, double High) Selected(Settings settings) => settings.AudioBand switch
     {
         AudioBand.Bass => (20, 180),
         AudioBand.Treble => (2500, 20000),

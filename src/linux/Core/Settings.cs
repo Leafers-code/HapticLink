@@ -95,6 +95,8 @@ namespace HapticLink.Core
         public int AudioProcessId { get; set; }
         public int AudioStreamIndex { get; set; } = -1;
         public bool AudioEqEnabled { get; set; } = true;
+        public bool AudioFrequencyCaptureEnabled { get; set; } = true;
+        public Dictionary<string, bool> PluginEnabled { get; set; } = new();
         public double AudioCaptureLowHz { get; set; } = 20;
         public double AudioCaptureHighHz { get; set; } = 20000;
         public double AudioEqPreampDb { get; set; }

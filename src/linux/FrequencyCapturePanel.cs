@@ -18,15 +18,19 @@ public sealed class EqualizerPanel : StackPanel
     private readonly NumericUpDown _from, _to;
     private readonly Slider _fromSlider, _toSlider;
     private readonly TonalEqualizerPanel _tonal;
+    private readonly CheckBox _enabled = new() { Content = "Enabled", Margin = new Thickness(10, 0, 0, 0) };
     private readonly List<(Button Button, double Low, double High)> _presets = new();
     private bool _syncing;
 
     public EqualizerPanel(Settings settings, AudioSource source)
     {
         _settings = settings; _source = source; Spacing = 5;
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
         header.Children.Add(new TextBlock { Text = "AUDIO FREQUENCY CAPTURE", FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Classic.Muted });
         Grid.SetColumn(_selection, 1); header.Children.Add(_selection); Children.Add(header);
+        _enabled.IsChecked = settings.AudioFrequencyCaptureEnabled;
+        _enabled.IsCheckedChanged += (_, _) => { if (!_syncing) { settings.AudioFrequencyCaptureEnabled = _enabled.IsChecked == true; Refresh(); } };
+        Grid.SetColumn(_enabled, 2); header.Children.Add(_enabled);
         Children.Add(new TextBlock { Text = "Choose the part of the audio that drives haptics. Drag the blue edges or enter a range.", FontSize = 11, Foreground = Classic.Muted, TextWrapping = TextWrapping.Wrap });
         var presets = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         void Preset(string title, AudioBand band, double low, double high)
@@ -58,7 +62,7 @@ public sealed class EqualizerPanel : StackPanel
         void Change(double value)
         {
             if (_syncing) return;
-            var range = AudioFrequencyRange.For(_settings);
+            var range = AudioFrequencyRange.Selected(_settings);
             if (lower) Apply(Math.Clamp(value, 20, range.High - AudioFrequencyRange.Gap), range.High);
             else Apply(range.Low, Math.Clamp(value, range.Low + AudioFrequencyRange.Gap, 20000));
         }
@@ -72,21 +76,24 @@ public sealed class EqualizerPanel : StackPanel
     {
         (low, high) = AudioFrequencyRange.Normalize(low, high);
         _settings.AudioCaptureLowHz = low; _settings.AudioCaptureHighHz = high; _settings.AudioBand = AudioBand.Custom;
+        _settings.AudioFrequencyCaptureEnabled = true;
         Refresh();
     }
 
     public void Refresh()
     {
         if (_from == null || _to == null) return;
-        var range = AudioFrequencyRange.For(_settings);
+        var range = AudioFrequencyRange.Selected(_settings);
         _syncing = true;
         try
         {
             _from.Value = (decimal)range.Low; _to.Value = (decimal)range.High;
             _fromSlider.Value = Math.Log10(range.Low); _toSlider.Value = Math.Log10(range.High);
-            _selection.Text = $"{range.Low:0}–{range.High:0} Hz";
+            _enabled.IsChecked = _settings.AudioFrequencyCaptureEnabled;
+            _selection.Text = _settings.AudioFrequencyCaptureEnabled ? $"{range.Low:0}–{range.High:0} Hz" : "BYPASSED · full range";
             foreach (var preset in _presets) preset.Button.Classes.Set("active", preset.Low == range.Low && preset.High == range.High);
-            _view.Update(range.Low, range.High, _source.Running ? _source.Spectrum : Array.Empty<double>());
+            var captured = AudioFrequencyRange.For(_settings);
+            _view.Update(captured.Low, captured.High, _source.Running ? _source.Spectrum : Array.Empty<double>());
             _tonal?.Refresh();
         }
         finally { _syncing = false; }

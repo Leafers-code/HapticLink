@@ -36,6 +36,7 @@ internal static partial class Tests
         TestAudio();
         TestConfig(s);
         await TestIntegrations();
+        await TestPlugins(home);
         TestEqualizerAndRouting();
         TestPcmNormalization();
         await TestFocusGate();
@@ -144,11 +145,13 @@ internal static partial class Tests
 
     private static void RunUi(string home)
     {
+        Environment.SetEnvironmentVariable("HAPTICLINK_HOME", Path.Combine(home, "ui-config-" + Guid.NewGuid().ToString("N")));
+        new Settings().Save();
         AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
         var window = new MainWindow(); window.Show();
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
         var tabs = window.GetVisualDescendants().OfType<TabControl>().Single();
-        Check(tabs.Items.Count == 8, "all eight UI tabs constructed");
+        Check(tabs.Items.Count == 9, "all nine UI tabs constructed");
         foreach (TabItem tab in tabs.Items)
         {
             tabs.SelectedItem = tab;
@@ -191,6 +194,29 @@ internal static partial class Tests
         Check(tabs.Items.Cast<TabItem>().All(InViewport), "all tab headers fit at minimum window size");
         using (var compactImage = window.CaptureRenderedFrame()) compactImage.Save(Path.Combine(home, "ui-Minimum-size.png"));
         window.Width = 1200; window.Height = 800;
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Plugins");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        var manualFeature = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PluginFeature-manual");
+        manualFeature.IsChecked = false;
+        typeof(MainWindow).GetMethod("Refresh", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window, null);
+        var sourceToggles = (CheckBox[])typeof(MainWindow).GetField("_sourceToggles", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(window);
+        Check(!liveSettings.Manual.Enabled && sourceToggles[3].IsChecked == false, "plugin source toggle stays synchronized with the original source controls");
+        manualFeature.IsChecked = true;
+        var frequencyFeature = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PluginFeature-frequency");
+        frequencyFeature.IsChecked = false;
+        Check(!liveSettings.AudioFrequencyCaptureEnabled && AudioFrequencyRange.For(liveSettings) == (20d, 20000d), "plugin manager bypasses the live frequency capture filter");
+        frequencyFeature.IsChecked = true;
+        void ClickButton(string title) => window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == title).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        ClickButton("Available"); Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        using (var availableImage = window.CaptureRenderedFrame()) availableImage.Save(Path.Combine(home, "ui-Plugins-Available.png"));
+        var search = window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PluginSearch"); search.Text = "Counter-Strike";
+        window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "Install-cs2-events").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        var liveEngine = (Engine)typeof(MainWindow).GetField("_engine", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(window);
+        Check(liveEngine.Plugins.Installed.Single().Profile.Kind == "cs2" && !liveSettings.Events.Enabled && !liveEngine.Armed, "UI catalog installs a profile without enabling the bridge or arming output");
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        using (var installedImage = window.CaptureRenderedFrame()) installedImage.Save(Path.Combine(home, "ui-Plugins-Installed.png"));
+        ClickButton("Remove"); Check(liveEngine.Plugins.Installed.Length == 0, "plugin UI removes the installed profile");
+        ClickButton("Undo removal"); Check(liveEngine.Plugins.Installed.Length == 1 && !liveEngine.Plugins.Installed[0].Enabled, "plugin UI can undo a removal without enabling the profile");
         // Rebuild after avatar changes: repeated controls must not retain an old parent.
         var oscPanel = typeof(MainWindow).GetMethod("OscPanel", BindingFlags.NonPublic | BindingFlags.Instance);
         var rebuilt = (Control)oscPanel.Invoke(window, null);

@@ -78,5 +78,5 @@
   <Style Selector="TabItem:selected /template/ Border#TabChrome"><Setter Property="Background" Value="#222735"/></Style>
   <Style Selector="TabItem:selected /template/ Border#Underline"><Setter Property="BorderBrush" Value="#4EA1FF"/></Style>
   <Style Selector="TabItem:pointerover /template/ Border#TabChrome"><Setter Property="Background" Value="#222735"/></Style>
-  <Style Selector="Expander"><Setter Property="MinHeight" Value="30"/><Setter Property="Padding" Value="8,4"/></Style>
+  <Style Selector="Expander"><Setter Property="MinHeight" Value="30"/><Setter Property="Padding" Value="8,4"/><Setter Property="Background" Value="#222735"/><Setter Property="BorderBrush" Value="#2E3444"/></Style>
 </Styles>

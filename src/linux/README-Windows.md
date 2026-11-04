@@ -1,8 +1,10 @@
-# HapticLink 1.2.1 â€” Windows preview
+# HapticLink 1.3 — Windows preview
 
 The updated Avalonia app can also be published for Windows. It includes the Intiface-compatible event receiver, CS2 GSI, game-window focus pausing, transparent overlay with interactive EQ, patterns and OSC. It uses NAudio WASAPI for output-device capture and the recovered ViGEm/XInput implementation for controller rumble.
 
 Version 1.2.1 brings back the original compact dark interface, always-visible source meters and bottom log. The new event, overlay and EQ features remain in the same app. On the EQ tab, choose Bass/Mids/Treble or drag/enter a frequency range to select which audio drives haptics.
+
+The **Plugins** tab manages built-in features and installable integration profiles. See [PLUGINS.md](PLUGINS.md).
 
 ## Run
 

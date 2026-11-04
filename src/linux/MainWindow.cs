@@ -19,6 +19,10 @@ public sealed class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly TextBlock _connection = Text("Enter your phone's Game Mode IP address."), _output = Text("0%"), _state = Text("DISARMED");
     private readonly TextBlock[] _status = new TextBlock[5];
+    private readonly CheckBox[] _sourceToggles = new CheckBox[5];
+    private CheckBox _overlayToggle, _focusToggle;
+    private TabControl _tabs;
+    private PluginManagerPanel _plugins;
     private readonly SignalMeter[] _meters = new SignalMeter[5];
     private readonly TextBlock[] _levels = new TextBlock[5];
     private readonly Border[] _dots = new Border[5];
@@ -43,7 +47,7 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "HapticLink · 1.2.1 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
+        Title = "HapticLink · 1.3 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Classic.Background;
         _engine = new Engine(_s);
@@ -112,6 +116,7 @@ public sealed class MainWindow : Window
         }
         var sourceCard = Card(sources); sourceCard.Margin = new Thickness(0, 0, 0, 10); right.Children.Add(sourceCard);
         var tabs = new TabControl { FontSize = 12, Padding = new Thickness(0) };
+        _tabs = tabs;
         tabs.Items.Add(new TabItem { Header = "Controller", Content = Scroll(RumblePanel()) });
         tabs.Items.Add(new TabItem { Header = "Audio", Content = Scroll(AudioPanel()) });
         _oscTab.Content = Scroll(OscPanel()); tabs.Items.Add(_oscTab);
@@ -120,6 +125,8 @@ public sealed class MainWindow : Window
         tabs.Items.Add(new TabItem { Header = "Overlay", Content = Scroll(OverlayPanel()) });
         _equalizer = new EqualizerPanel(_s, _engine.Audio);
         tabs.Items.Add(new TabItem { Header = "EQ", Content = Scroll(_equalizer) });
+        _plugins = new PluginManagerPanel(_engine, Navigate);
+        tabs.Items.Add(new TabItem { Header = "Plugins", Content = Scroll(_plugins) });
         tabs.Items.Add(new TabItem { Header = "Settings", Content = Scroll(SettingsPanel()) });
         var tabCard = Card(tabs); tabCard.Padding = new Thickness(6); Grid.SetRow(tabCard, 1); right.Children.Add(tabCard);
         var logPanel = Panel(); logPanel.Spacing = 3; logPanel.Children.Add(Heading("LOG")); logPanel.Children.Add(_log);
@@ -172,7 +179,9 @@ public sealed class MainWindow : Window
 
     private StackPanel SourcePanel(int index, string title, string description)
     {
-        var p = Panel(); p.Children.Add(Columns(Heading(title), Check("Enable source", _engine.SettingsFor(index).Enabled, x => _engine.SetSourceEnabled(index, x))));
+        var enabled = Check("Enable source", _engine.SettingsFor(index).Enabled, x => { if (_engine.SettingsFor(index).Enabled != x) _engine.SetSourceEnabled(index, x); });
+        _sourceToggles[index] = enabled;
+        var p = Panel(); p.Children.Add(Columns(Heading(title), enabled));
         p.Children.Add(Text(description));
         _status[index] = Text("Idle"); _status[index].FontFamily = Classic.Mono; p.Children.Add(_status[index]);
         return p;
@@ -282,8 +291,8 @@ public sealed class MainWindow : Window
         }));
         p.Children.Add(Button("Clear game selection", () => { _s.GameWindowId = ""; _s.GameProcessId = 0; windows.SelectedItem = null; return Task.CompletedTask; }));
         p.Children.Add(_gameStatus);
-        p.Children.Add(Check("Pause all output when the selected game loses focus", _s.PauseWhenGameUnfocused, x => _s.PauseWhenGameUnfocused = x));
-        p.Children.Add(Check("Show overlay", _s.OverlayEnabled, x => _s.OverlayEnabled = x));
+        _focusToggle = Check("Pause all output when the selected game loses focus", _s.PauseWhenGameUnfocused, x => _s.PauseWhenGameUnfocused = x); p.Children.Add(_focusToggle);
+        _overlayToggle = Check("Show overlay", _s.OverlayEnabled, x => _s.OverlayEnabled = x); p.Children.Add(_overlayToggle);
         p.Children.Add(Check("Interactive overlay — drag header and use controls", _s.OverlayInteractive, x => _s.OverlayInteractive = x));
         p.Children.Add(Check("Show only while the selected game is focused", _s.OverlayOnlyWhenGameFocused, x => _s.OverlayOnlyWhenGameFocused = x));
         AddSlider(p, "Overlay opacity", .2, 1, _s.OverlayOpacity, x => _s.OverlayOpacity = x, "P0");
@@ -378,11 +387,14 @@ public sealed class MainWindow : Window
         _connectionPill.Background = Classic.Brush(st.Connected ? "#192B23" : "#2A1D1D");
         for (int i = 0; i < 5; i++)
         {
+            if (_sourceToggles[i].IsChecked != _engine.SettingsFor(i).Enabled) _sourceToggles[i].IsChecked = _engine.SettingsFor(i).Enabled;
             _meters[i].Value = st.Shaped[i]; _levels[i].Text = st.Shaped[i].ToString("P0"); _status[i].Text = st.SourceStatus[i];
             _dots[i].Background = st.SourceRunning[i] ? Classic.Good : _engine.SettingsFor(i).Enabled ? Classic.Warn : Classic.Line;
             ToolTip.SetTip(_dots[i], st.SourceStatus[i]);
         }
         _equalizer.Refresh();
+        _overlayToggle.IsChecked = _s.OverlayEnabled; _focusToggle.IsChecked = _s.PauseWhenGameUnfocused;
+        if (_ticks % 5 == 0) _plugins.Refresh();
         _eventEndpoint.Text = _engine.Events.Endpoint;
         _gameStatus.Text = _engine.Game.State.Status + (_engine.Game.State.Window is { } game ? " · " + game.Title : "");
         var focus = _engine.Game.State;
@@ -448,7 +460,7 @@ public sealed class MainWindow : Window
                     else if (command == "arm") ToggleArm();
                     else if (command == "overlay") _s.OverlayEnabled = !_s.OverlayEnabled;
                     else if (command == "overlay-interact") _s.OverlayInteractive = !_s.OverlayInteractive;
-                    else { Show(); Activate(); }
+                    else { if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Show(); Activate(); }
                 });
             }
             catch (OperationCanceledException) { break; }
@@ -457,6 +469,12 @@ public sealed class MainWindow : Window
     }
 
     private sealed record Choice(string Id, string Label) { public override string ToString() => Label; }
+    private void Navigate(string page)
+    {
+        if (page == "Connection") { _host.BringIntoView(); _host.Focus(); return; }
+        if (page == "Output") { _output.BringIntoView(); return; }
+        _tabs.SelectedItem = _tabs.Items.Cast<TabItem>().FirstOrDefault(t => t.Header?.ToString() == page);
+    }
     private static void SetChoices(ComboBox combo, List<(string Id, string Name)> items, string selected, string defaultName)
     {
         var choices = new List<Choice> { new("", defaultName) };

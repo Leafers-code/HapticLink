@@ -1,6 +1,6 @@
 # HapticLink for Linux
 
-**Version 1.2.1 preview:** Original-style compact dark UI with persistent source meters and log; [Intiface/game events, application audio, overlay and frequency-selective haptics EQ](INTEGRATIONS.md). The built-in Intiface-compatible receiver feeds the existing Lovense output; it is not an Intiface Central device backend. These features are in the Linux port, not the recovered Windows WPF source.
+**Version 1.3 preview:** [Plugin manager and integration profiles](PLUGINS.md), plus Original-style compact dark UI with persistent source meters and log; [Intiface/game events, application audio, overlay and frequency-selective haptics EQ](INTEGRATIONS.md). The built-in Intiface-compatible receiver feeds the existing Lovense output; it is not an Intiface Central device backend. These features are in the Linux port, not the recovered Windows WPF source.
 
 This port was made from the original HapticLink C# source recovered from the October 9, 2026 C-drive backup. The original Windows source is preserved separately. The Linux app uses Avalonia, PulseAudio/PipeWire monitor capture, and an optional Python evdev/uinput controller bridge. The existing Lovense LAN client, patterns, OSC/SPS processing, per-avatar settings and per-motor routing are retained.
 
@@ -35,7 +35,7 @@ The `linux-x64` archive includes .NET; you do not need to install the .NET SDK o
    ./HapticLink
    ```
 
-4. On your phone, enable Lovense Remote â†’ Game Mode. Enter its IP and press Connect. Choose a device or leave All connected devices selected. Press Test 25% to check the link, then choose a source and ARM OUTPUT.
+4. On your phone, enable Lovense Remote → Game Mode. Enter its IP and press Connect. Choose a device or leave All connected devices selected. Press Test 25% to check the link, then choose a source and ARM OUTPUT.
 
 Optional application-menu entry:
 
