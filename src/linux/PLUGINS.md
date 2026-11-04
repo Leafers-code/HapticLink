@@ -2,6 +2,26 @@
 
 Plugins are game integrations. Each installed plugin appears as a main tab alongside Audio, Controller and OSC. CS2 and Overwatch 2 are included and preconfigured on first launch, with output disabled until you enable a plugin and arm the mixer.
 
+## Discover community integrations
+
+Open **Plugins → Discover**. The bundled catalog contains 69 projects (44 game integrations) from the [community list supplied for this project](https://github.com/Renpona/awesome-intiface-sfw-list/blob/sfw-list/README.md). **Refresh community list** fetches that index over HTTPS and saves it locally. A failed refresh leaves the previous list intact; discovery does not require a network connection at startup. Deprecated projects and development libraries are excluded.
+
+Search by game, mod name or requirement, choose Games/Apps/All, and optionally filter for this platform. **Details / guide** shows the source's requirements and opens the project. Platform labels come from the community index; “Check project” means the index does not specify one.
+
+**Add tab** installs a disabled HapticLink connection profile and opens its game tab. It does not install a game mod or automatically enable input/arm output. A generic tab receives Buttplug vibration; game event detection and trigger editing remain in the external integration. Projects whose index entry does not list an Intiface/Buttplug connection offer a project guide instead. Existing CS2 and Overwatch entries open their existing tabs without duplicating them.
+
+The catalog is discovery metadata, not a claim of tested game compatibility. Current game versions, mod loaders, paid features and supported actuators vary by project. HapticLink currently advertises vibration only. It does not download or execute arbitrary mod binaries.
+
+### FFXIV Vibe Plugin
+
+Its dedicated tab includes **Copy Dalamud repository** and setup instructions based on the [project's installation guide](https://github.com/kaciexx/FFXIV_Vibe_Plugin#installation). Add the repository through `/xlplugins` → Settings → Experimental → Custom Plugin Repositories, install the plugin there, then open `/fvp` to set up its connection and triggers. The external project has free and paid features; check its guide for current game support.
+
+### Clients with separate host and port fields
+
+Expand **Host / port connection** on the relevant game tab, choose **Use host / port mode**, and reconnect the mod using host `127.0.0.1` and the displayed port (default `12346`). Incoming vibration belongs to that tab and uses its intensity scale. This action does not enable the plugin or arm output.
+
+Only one tab can own the shared host/port address at a time. Full addresses ending in `/plugins/ID` stay independent. Switching the assignment clears/disconnects old shared-address sessions; disabling or removing the assigned tab blocks those connections rather than falling back to unscoped input. **Plugins → Installed → Use shared host / port bridge** explicitly restores the legacy shared endpoint.
+
 ## Counter-Strike 2
 
 1. Open **CS2** and choose **Install CS2 game config**. Select the game's `game/csgo/cfg` folder; Steam libraries are detected to suggest a location. An existing HapticLink config is backed up before replacement.
@@ -33,11 +53,11 @@ Plugin files are stored under `plugins/installed` in the existing settings direc
 
 ## Custom integration format
 
-Schema 2 adds optional tab and companion metadata; existing schema 1 exports remain readable. The host supports `cs2`, `buttplug` and `http-events`. For example:
+Schema 3 adds optional `sourceUrl`, `setupKind` and `installRepositoryUrl` fields. Schema 1 and 2 exports remain readable. The host supports `cs2`, `buttplug` and `http-events`. For example:
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "my-game",
   "name": "My game",
   "tabName": "My game",

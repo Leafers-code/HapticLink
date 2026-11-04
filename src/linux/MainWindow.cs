@@ -50,7 +50,7 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "HapticLink · 1.4 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
+        Title = "HapticLink · 1.5 preview"; Width = 1200; Height = 800; MinWidth = 1040; MinHeight = 700;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Classic.Background;
         _engine = new Engine(_s);

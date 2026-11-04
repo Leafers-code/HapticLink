@@ -37,6 +37,7 @@ internal static partial class Tests
         TestConfig(s);
         await TestIntegrations();
         await TestPlugins(home);
+        await TestCommunity(home);
         TestEqualizerAndRouting();
         TestPcmNormalization();
         await TestFocusGate();
@@ -219,6 +220,26 @@ internal static partial class Tests
         Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         using (var gamesImage = window.CaptureRenderedFrame()) gamesImage.Save(Path.Combine(home, "ui-Game-Plugins.png"));
         void ClickButton(string name) => window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        var browserSearch = window.GetVisualDescendants().OfType<TextBox>().Single(b => b.Name == "PluginSearch");
+        browserSearch.Text = "FFXIV"; Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        var ffxivCard = window.GetVisualDescendants().OfType<Button>().First(b => b.Name?.StartsWith("CommunityAdd-") == true && b.Content?.ToString() == "Add tab");
+        Check(InViewport(ffxivCard), "FFXIV community search offers an add-tab action in the visible browser");
+        using (var browserImage = window.CaptureRenderedFrame()) browserImage.Save(Path.Combine(home, "ui-Community-FFXIV.png"));
+        // Select the Vibe Plugin entry, whose setup supports host / port-only clients.
+        var entry = new CommunityCatalog().Snapshot.Entries.Single(e => e.Name == "FFXIV Vibe Plugin");
+        ClickButton("CommunityAdd-" + entry.Id); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        Check(tabs.SelectedItem is TabItem community && community.Header.ToString() == "FFXIV Vibe Plugin" && !liveEngine.Armed && !liveEngine.Plugins.Installed.Single(p => p.Profile.Id == entry.Id).Enabled, "adding a community integration creates and opens its disabled game tab without arming");
+        Check(window.GetVisualDescendants().OfType<Button>().Any(b => b.Name == "CopyGameRepository-" + entry.Id), "FFXIV game tab offers the in-game plugin repository");
+        using (var setupImage = window.CaptureRenderedFrame()) setupImage.Save(Path.Combine(home, "ui-FFXIV-Setup.png"));
+        window.GetVisualDescendants().OfType<Expander>().Single(e => e.Header?.ToString() == "Host / port connection").IsExpanded = true;
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        ClickButton("UseHostPort-" + entry.Id);
+        Check(liveEngine.Plugins.HostPortPluginId == entry.Id && !liveEngine.Plugins.Installed.Single(p => p.Profile.Id == entry.Id).Enabled && !liveEngine.Armed, "game tab assigns host / port mode without enabling or arming output");
+        tabs.SelectedItem = tabs.Items.Cast<TabItem>().Single(t => t.Header.ToString() == "Plugins"); Dispatcher.UIThread.RunJobs();
+        browserSearch.Text = ""; ClickButton("InstalledPlugins"); Dispatcher.UIThread.RunJobs();
+        Check(window.GetVisualDescendants().OfType<Button>().Count(b => b.Name == "OpenGame-" + entry.Id) == 1, "community tab appears once in the installed manager");
+        ClickButton("RemoveGame-" + entry.Id); Dispatcher.UIThread.RunJobs();
+        Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "FFXIV Vibe Plugin"), "community game removal removes its main tab");
         ClickButton("RemoveGame-overwatch2"); Dispatcher.UIThread.RunJobs();
         Check(!tabs.Items.Cast<TabItem>().Any(t => t.Header.ToString() == "Overwatch 2"), "removing a game removes its tab");
         window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "Undo removal").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

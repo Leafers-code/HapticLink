@@ -18,6 +18,7 @@ public sealed class GamePluginPanel : StackPanel
     private readonly TextBlock _status = Label(""), _level = Label("0%"), _message = Label(""), _application = Label("");
     private readonly SignalMeter _meter = new() { Height = 12, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBox _address = new() { IsReadOnly = true };
+    private readonly TextBlock _hostPortStatus = Label("");
     private bool _syncing;
     public GamePluginPanel(Engine engine, PluginProfile profile)
     {
@@ -70,6 +71,28 @@ public sealed class GamePluginPanel : StackPanel
             connection.Children.Add(Label(profile.Setup)); Children.Add(new Expander { Header = "Connection details", Content = connection });
         }
         else Children.Add(Button("Copy connection address", CopyAddress));
+        if (profile.Kind == "buttplug")
+        {
+            if (profile.SourceUrl.Length > 0)
+            {
+                var guide = new StackPanel { Spacing = 4 };
+                guide.Children.Add(Label(profile.SetupKind + " · External setup required"));
+                guide.Children.Add(Button("Open project / install guide ↗", async () => { var top = TopLevel.GetTopLevel(this); if (top != null) await top.Launcher.LaunchUriAsync(new Uri(profile.SourceUrl)); }));
+                if (profile.InstallRepositoryUrl.Length > 0)
+                {
+                    guide.Children.Add(new TextBox { Text = profile.InstallRepositoryUrl, IsReadOnly = true });
+                    var copy = Button("Copy Dalamud repository", async () => { var clipboard = TopLevel.GetTopLevel(this)?.Clipboard; if (clipboard != null) await clipboard.SetTextAsync(profile.InstallRepositoryUrl); });
+                    copy.Name = "CopyGameRepository-" + _id; guide.Children.Add(copy);
+                }
+                Children.Add(guide);
+            }
+            var hostPort = new StackPanel { Spacing = 4 };
+            hostPort.Children.Add(Label("For clients with separate host and port fields. Only one game can use this address at a time; full connection addresses stay independent."));
+            hostPort.Children.Add(_hostPortStatus);
+            var use = Button("Use host / port mode", () => { _manager.SetHostPortPlugin(_id); _engine.S.Save(); _message.Text = "Host / port connections now belong to this tab. Reconnect the external mod."; Refresh(); return Task.CompletedTask; });
+            use.Name = "UseHostPort-" + _id; hostPort.Children.Add(use);
+            Children.Add(new Expander { Header = "Host / port connection", Content = hostPort });
+        }
         _message.Foreground = Classic.Accent; Children.Add(_message); Refresh();
     }
     private void AddRules()
@@ -127,6 +150,7 @@ public sealed class GamePluginPanel : StackPanel
             : _profile.Kind == "buttplug" ? _engine.Events.ProfileClientCount(_id) > 0 ? "Integration connected" : _profile.Companion == "overstim" ? "Waiting for OverStim" : "Waiting for integration" : "Listening for game events";
         _status.Foreground = !installed.Enabled ? Classic.Muted : _engine.Events.Running ? Classic.Good : Classic.Warn;
         _address.Text = _manager.Endpoint(_profile, _engine.Events.ActivePort);
+        _hostPortStatus.Text = "Host: 127.0.0.1   Port: " + _engine.Events.ActivePort + "\n" + (_manager.HostPortPluginId == _id ? "Assigned to this tab" : "Use host / port mode to assign this address to this tab");
         _application.Text = _engine.S.PluginApplications.TryGetValue(_id, out var path) ? "Selected: " + Path.GetFileName(path) : "Choose the installed companion to launch it from this tab.";
         _message.IsVisible = !string.IsNullOrWhiteSpace(_message.Text);
     }

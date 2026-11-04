@@ -44,15 +44,22 @@ public sealed class IntegrationSource : SourceBase
     public string Endpoint => $"ws://127.0.0.1:{(Running ? _activePort : _s.IntegrationPort)}";
     public IntegrationSource(Settings s, PluginManager plugins = null)
     {
-        _s = s; _plugins = plugins ?? new PluginManager(s); _plugins.Changed += ProfileChanged;
+        _s = s; _plugins = plugins ?? new PluginManager(s); _plugins.Changed += ProfileChanged; _plugins.HostPortChanged += HostPortChanged;
     }
     public int ActivePort => Running ? _activePort : _s.IntegrationPort;
     private void ProfileChanged(string id) => ClearProfile(id, true);
+    private void HostPortChanged()
+    {
+        foreach (var session in _clients.Values.Where(c => c.RootConnection)) AbortSession(session);
+        Interlocked.Increment(ref _stopRevision); Tick(0);
+    }
+    private bool SessionAllowed(Session session) => (session.ProfileId == null || _plugins.GetEnabled(session.ProfileId, "buttplug") != null)
+        && (!session.RootConnection || session.ProfileId == _plugins.HostPortPluginId);
     private void ClearProfile(string id, bool disconnect)
     {
         foreach (var entry in _pulses) if (entry.Value.profile == id) _pulses.TryRemove(entry.Key, out _);
         foreach (var key in _cooldowns.Keys) if (key.StartsWith(id + "\0", StringComparison.Ordinal)) _cooldowns.TryRemove(key, out _);
-        foreach (var session in _clients.Values) if (session.ProfileId == id) { session.Level = 0; if (disconnect) session.Socket.Abort(); }
+        foreach (var session in _clients.Values) if (session.ProfileId == id) { session.Level = 0; if (disconnect) AbortSession(session); }
         lock (_gsiGate) _cs2.Remove(id);
         Interlocked.Increment(ref _stopRevision); Tick(0);
     }
@@ -82,7 +89,7 @@ public sealed class IntegrationSource : SourceBase
                 await app.StartAsync(token);
                 Running = true; Status = "Listening: " + Endpoint;
                 try { await Task.Delay(Timeout.Infinite, token); } catch (OperationCanceledException) { }
-                foreach (var session in _clients.Values) session.Socket.Abort();
+                foreach (var session in _clients.Values) AbortSession(session);
                 using var shutdown = new CancellationTokenSource(2000);
                 await app.StopAsync(shutdown.Token);
             }
@@ -94,11 +101,13 @@ public sealed class IntegrationSource : SourceBase
 
     private async Task WebSocketRequest(HttpContext context, CancellationToken token, string profileId = null)
     {
+        var rootConnection = profileId == null;
+        if (rootConnection) profileId = _plugins.HostPortPluginId;
         if (!IsLoopback(context.Connection.RemoteIpAddress)) { context.Response.StatusCode = 403; return; }
         if (profileId != null && _plugins.GetEnabled(profileId, "buttplug") == null) { context.Response.StatusCode = 404; return; }
         if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
         if (_clients.Count >= 8) { context.Response.StatusCode = 503; return; }
-        using var socket = await context.WebSockets.AcceptWebSocketAsync(); await ReceiveClient(socket, token, profileId);
+        using var socket = await context.WebSockets.AcceptWebSocketAsync(); await ReceiveClient(socket, token, profileId, rootConnection);
     }
 
     private async Task EventRequest(HttpContext context, bool cs2, string profileId = null)
@@ -185,7 +194,7 @@ public sealed class IntegrationSource : SourceBase
             if (now >= pulse.until || pulse.profile != null && _plugins.GetEnabled(pulse.profile) == null) _pulses.TryRemove(id, out _); else max = Math.Max(max, pulse.level * (pulse.profile == null ? 1 : _plugins.Gain(pulse.profile)));
         var timeout = Math.Clamp(_s.IntegrationTimeoutMs, 1000, 30000);
         foreach (var client in _clients.Values)
-            if (now - Interlocked.Read(ref client.LastPing) > timeout || client.ProfileId != null && _plugins.GetEnabled(client.ProfileId, "buttplug") == null) { client.Level = 0; client.Socket.Abort(); }
+            if (now - Interlocked.Read(ref client.LastPing) > timeout || !SessionAllowed(client)) AbortSession(client);
             else max = Math.Max(max, client.Level * (client.ProfileId == null ? 1 : _plugins.Gain(client.ProfileId)));
         Raw = Sig.Clamp01(max);
         Status = $"{Endpoint} · {ClientCount} client(s) · {LastEvent}";
@@ -195,16 +204,24 @@ public sealed class IntegrationSource : SourceBase
     {
         public WebSocket Socket;
         public string ProfileId;
+        public bool RootConnection;
         public int Version;
         public double Level;
         public long LastPing = Environment.TickCount64;
     }
-    private async Task ReceiveClient(WebSocket socket, CancellationToken cancellation, string profileId = null)
+    private static void AbortSession(Session session)
     {
-        var id = Guid.NewGuid(); var session = new Session { Socket = socket, ProfileId = profileId };
+        session.Level = 0;
+        // A concurrent receive may have completed and disposed Kestrel's request.
+        try { session.Socket.Abort(); } catch (ObjectDisposedException) { }
+    }
+    private async Task ReceiveClient(WebSocket socket, CancellationToken cancellation, string profileId = null, bool rootConnection = false)
+    {
+        var id = Guid.NewGuid(); var session = new Session { Socket = socket, ProfileId = profileId, RootConnection = rootConnection };
         _clients[id] = session;
         try
         {
+            if (!SessionAllowed(session)) return;
             var buffer = new byte[4096];
             while (socket.State == WebSocketState.Open && !cancellation.IsCancellationRequested)
             {
@@ -226,7 +243,7 @@ public sealed class IntegrationSource : SourceBase
                     using var doc = JsonDocument.Parse(message.ToArray());
                     if (doc.RootElement.ValueKind != JsonValueKind.Array) throw new JsonException();
                     foreach (var command in doc.RootElement.EnumerateArray())
-                        if (profileId == null || _plugins.GetEnabled(profileId, "buttplug") != null) Handle(command, session, replies);
+                        if (SessionAllowed(session)) Handle(command, session, replies);
                         else replies.Add(Error(0, "Profile is disabled"));
                 }
                 catch (JsonException) { replies.Add(Error(0, "Expected a Buttplug JSON message array")); }
@@ -352,10 +369,10 @@ public sealed class IntegrationSource : SourceBase
             if (current.Round == "over" && last.Round != "over" && current.WinTeam.Length > 0 && current.WinTeam == current.Team) Trigger("round_win", profileId);
         }
     }
-    public override void Dispose() { _plugins.Changed -= ProfileChanged; base.Dispose(); }
+    public override void Dispose() { _plugins.Changed -= ProfileChanged; _plugins.HostPortChanged -= HostPortChanged; base.Dispose(); }
     public override void Stop()
     {
-        _cts?.Cancel(); foreach (var session in _clients.Values) session.Socket.Abort();
+        _cts?.Cancel(); foreach (var session in _clients.Values) AbortSession(session);
         try { _runner?.Wait(3000); } catch { }
         _cts?.Dispose(); _cts = null; _runner = null; Running = false; Clear();
         lock (_gsiGate) _cs2.Clear();

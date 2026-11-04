@@ -7,7 +7,7 @@ namespace HapticLink.Core;
 
 public sealed class PluginProfile
 {
-    public int SchemaVersion { get; set; } = 2;
+    public int SchemaVersion { get; set; } = 3;
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Version { get; set; } = "1.0.0";
@@ -16,6 +16,9 @@ public sealed class PluginProfile
     public string Setup { get; set; } = "";
     public string TabName { get; set; } = "";
     public string Companion { get; set; } = "";
+    public string SourceUrl { get; set; } = "";
+    public string SetupKind { get; set; } = "";
+    public string InstallRepositoryUrl { get; set; } = "";
     public List<GameEventRule> Rules { get; set; } = new();
 }
 
@@ -35,6 +38,17 @@ public sealed class PluginManager
     private readonly Dictionary<string, PluginProfile> _installed = new(StringComparer.Ordinal);
     private readonly List<string> _errors = new();
     public event Action<string> Changed;
+    public event Action HostPortChanged;
+    public string HostPortPluginId { get { lock (_gate) return string.IsNullOrEmpty(_settings.HostPortPluginId) ? null : _settings.HostPortPluginId; } }
+    public void SetHostPortPlugin(string id)
+    {
+        lock (_gate)
+        {
+            if (!string.IsNullOrEmpty(id) && (!_installed.TryGetValue(id, out var profile) || profile.Kind != "buttplug")) throw new InvalidDataException("Choose an installed Buttplug integration.");
+            _settings.HostPortPluginId = id ?? "";
+        }
+        HostPortChanged?.Invoke();
+    }
     public PluginManager(Settings settings, string directory = null)
     {
         _settings = settings; _directory = directory ?? Path.Combine(Settings.Dir, "plugins");
@@ -78,7 +92,7 @@ public sealed class PluginManager
                     if (Path.GetFileName(file) != profile.Id + ".json") throw new InvalidDataException("Profile ID does not match its filename.");
                     _installed.Add(profile.Id, profile);
                 }
-                catch (Exception ex) when (ex is IOException or JsonException or ArgumentException or UnauthorizedAccessException) { _errors.Add(Path.GetFileName(file) + ": " + ex.Message); }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or ArgumentException or UnauthorizedAccessException) { _errors.Add(Path.GetFileName(file) + ": " + ex.Message); }
         }
         foreach (var id in previous) Changed?.Invoke(id);
     }
@@ -127,8 +141,9 @@ public sealed class PluginManager
     {
         if (Encoding.UTF8.GetByteCount(json) > 131072) throw new InvalidDataException("Profile exceeds 128 KiB.");
         var p = JsonSerializer.Deserialize<PluginProfile>(json, Json) ?? throw new InvalidDataException("Empty profile.");
-        if (p.SchemaVersion is not (1 or 2)) throw new InvalidDataException("Unsupported profile schema version.");
+        if (p.SchemaVersion is not (1 or 2 or 3)) throw new InvalidDataException("Unsupported profile schema version.");
         if (p.TabName == null || p.TabName.Length > 24 || p.Companion is not ("" or "overstim")) throw new InvalidDataException("Invalid game tab or companion.");
+        if (!ValidProjectUrl(p.SourceUrl) || !ValidProjectUrl(p.InstallRepositoryUrl) || p.SetupKind == null || p.SetupKind.Length > 80) throw new InvalidDataException("Project links must use HTTPS and setup labels must be short.");
         if (!Regex.IsMatch(p.Id ?? "", "^[a-z0-9][a-z0-9-]{2,63}$") || Regex.IsMatch(p.Id, "^(con|prn|aux|nul|com[1-9]|lpt[1-9])$")) throw new InvalidDataException("Use a 3–64 character lowercase ID with letters, digits and hyphens.");
         if (string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 100 || !Version.TryParse(p.Version, out _)) throw new InvalidDataException("A name and numeric version are required.");
         if (p.Kind is not ("http-events" or "cs2" or "buttplug")) throw new InvalidDataException("Supported profile kinds: http-events, cs2, buttplug.");
@@ -138,6 +153,7 @@ public sealed class PluginManager
             if (rule == null || string.IsNullOrWhiteSpace(rule.Event) || rule.Event.Length > 80 || !names.Add(rule.Event) || !double.IsFinite(rule.Level) || rule.Level < 0 || rule.Level > 1 || rule.DurationMs < 0 || rule.DurationMs > 5000 || rule.CooldownMs < 0 || rule.CooldownMs > 10000) throw new InvalidDataException("Invalid or duplicate event rule.");
         return p;
     }
+    public static bool ValidProjectUrl(string value) => value == "" || value != null && value.Length <= 2048 && Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && !string.IsNullOrWhiteSpace(uri.Host) && uri.UserInfo.Length == 0;
     public string Endpoint(PluginProfile profile, int? activePort = null)
         => $"{(profile.Kind == "buttplug" ? "ws" : "http")}://127.0.0.1:{activePort ?? _settings.IntegrationPort}/plugins/{profile.Id}" + (profile.Kind == "buttplug" ? "" : profile.Kind == "cs2" ? "/cs2" : "/event");
     public string Cs2Config(PluginProfile profile)

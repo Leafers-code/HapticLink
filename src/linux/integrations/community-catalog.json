@@ -1,0 +1,558 @@
+{
+  "schemaVersion": 1,
+  "fetchedAtUtc": "2026-11-04T04:20:51.744696+00:00",
+  "entries": [
+    {
+      "name": "Buttplug Playground",
+      "url": "https://playground.buttplug.world",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web based (Cross platform, either via browsers or Intiface Central)"
+    },
+    {
+      "name": "Buttplug Editor",
+      "url": "https://github.com/MaidKun/buttplug-editor",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web based (Cross platform, either via browsers or Intiface Central)"
+    },
+    {
+      "name": "ToyWebBridge",
+      "url": "https://github.com/kyrahabattoir/ToyWebBridge",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Windows 10+ only Lists Intiface / Buttplug support."
+    },
+    {
+      "name": "ToyControl",
+      "url": "https://github.com/jackmg2/ToyControl",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web based (Cross platform, via browsers) Lists Intiface / Buttplug support."
+    },
+    {
+      "name": "Vibe Sequencer",
+      "url": "https://webvrnsfw.github.io/vibe-sequencer",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web based (Cross platform, via browsers with Intiface Central)"
+    },
+    {
+      "name": "Buttplug OSC",
+      "url": "https://github.com/AlexanderPavlenko/buttplug-osc",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central)"
+    },
+    {
+      "name": "Pattern Player",
+      "url": "https://github.com/pidurentry/patternplayer",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": false,
+      "details": "Cross platform"
+    },
+    {
+      "name": "Plaything.io",
+      "url": "https://github.com/Flutterish/plaything.io",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": false,
+      "details": "Cross platform"
+    },
+    {
+      "name": "WebRTPP",
+      "url": "https://github.com/monoredgoblins/WebTRPP",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": false,
+      "details": "Cross platform (web)"
+    },
+    {
+      "name": "Buzzy!",
+      "url": "https://buzzyme.vercel.app",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": false,
+      "details": "Cross platform (web)"
+    },
+    {
+      "name": "Beadi",
+      "url": "https://thatbatluna.github.io/Beadi",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web based (Cross platform, either via browsers or Intiface Central)"
+    },
+    {
+      "name": "PROHE",
+      "url": "https://marketplace.visualstudio.com/items?itemName=UncensorPat.prohe",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (VS Code, requires Intiface Central)"
+    },
+    {
+      "name": "Fediplug",
+      "url": "https://github.com/nova-r/fediplug",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (requires Intiface Central)"
+    },
+    {
+      "name": "Catplug",
+      "url": "https://www.nimmerneko.de/catplug",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web Based (Cross platform, either via browsers or Intiface Central)"
+    },
+    {
+      "name": "Vencord-Buttplugio",
+      "url": "https://github.com/KaydaFox/vencord-buttplugio",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (requires Intiface Central)"
+    },
+    {
+      "name": "VenPlugPlus",
+      "url": "https://codeberg.org/Mopigames/VenPlugPlus",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (requires Intiface Central)"
+    },
+    {
+      "name": "Anki Haptics",
+      "url": "https://ankiweb.net/shared/info/247550864",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (requires Intiface Central)"
+    },
+    {
+      "name": "Simple Intiface Vibes",
+      "url": "https://github.com/DabzillaNation/Simple-Initface-Vibes",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (requires Intiface Central)"
+    },
+    {
+      "name": "Ai Peeps Sync",
+      "url": "https://github.com/Crispy-repo/theaipeeps-intiface",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Web based (requires Intiface Central)"
+    },
+    {
+      "name": "Heartrate-Buttplug",
+      "url": "https://github.com/Das-L1/Heartrate-Buttplug",
+      "section": "Apps",
+      "category": "Utilities",
+      "listsIntiface": true,
+      "details": "Cross platform (requires Intiface Central)"
+    },
+    {
+      "name": "Music Vibes",
+      "url": "https://github.com/Shadlock0133/music-vibes",
+      "section": "Apps",
+      "category": "Audio Sync",
+      "listsIntiface": true,
+      "details": "Windows Only (Music Vibe can run standalone, Intiface Central optional)"
+    },
+    {
+      "name": "Subwoofer",
+      "url": "https://github.com/smol-skyz/subwoofer",
+      "section": "Apps",
+      "category": "Audio Sync",
+      "listsIntiface": true,
+      "details": "Windows/Linux Only (requires Intiface Central)"
+    },
+    {
+      "name": "MusicBoom",
+      "url": "https://github.com/NovaGlider/musicboom",
+      "section": "Apps",
+      "category": "Audio Sync",
+      "listsIntiface": true,
+      "details": "Linux Only (requires Intiface Central and JACK or Pipewire JACK)"
+    },
+    {
+      "name": "Buttplug VST",
+      "url": "https://github.com/fractalysis/buttplug-vst",
+      "section": "Apps",
+      "category": "Audio Sync",
+      "listsIntiface": true,
+      "details": "Windows Only (requires Intiface Central)"
+    },
+    {
+      "name": "Buttplug for Live",
+      "url": "https://maxforlive.com/library/device.php?id=9190",
+      "section": "Apps",
+      "category": "Audio Sync",
+      "listsIntiface": true,
+      "details": "Any platform supported by Ableton and Max (officially, Windows and macOS) Lists Intiface / Buttplug support."
+    },
+    {
+      "name": "Intiface® Game Haptics Router",
+      "url": "https://intiface.com/ghr",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (Standalone or via Intiface Central)"
+    },
+    {
+      "name": "Playful Plugins",
+      "url": "https://furimanejo.itch.io/playful-plugins",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows only, requires Intiface Central"
+    },
+    {
+      "name": "BPGE (ButtPlug Game Events)",
+      "url": "https://github.com/allanf181/BPGE",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central and HomeAssistant Game Events)"
+    },
+    {
+      "name": "Buttplug Valley",
+      "url": "https://github.com/DryIcedTea/Buttplug-Valley",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (via Intiface Central)"
+    },
+    {
+      "name": "UKButt Ultrakill Mod",
+      "url": "https://github.com/PITR-DEV/ukbutt-mod",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+, Steam Deck if You're Brave (via Intiface Central)"
+    },
+    {
+      "name": "B.U.T.T.P.L.U.G. Anomaly",
+      "url": "https://github.com/abbiwyn/buttplug-anomaly",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central)"
+    },
+    {
+      "name": "Skybutt Skyrim Plugin",
+      "url": "https://github.com/programotter/skybutt",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": false,
+      "details": "Windows 10+ only"
+    },
+    {
+      "name": "DGButtPlugin (Duck Game)",
+      "url": "https://github.com/BytewaveMLP/DGButtPlugin",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central)"
+    },
+    {
+      "name": "LLM_Buttplug",
+      "url": "https://github.com/PsychoSmiley/LLM_Buttplug",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Cross Platform Extension for oobabooga/text-generation-webui, (requires Intiface Central)"
+    },
+    {
+      "name": "ButtFish",
+      "url": "https://github.com/RonSijm/ButtFish",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only Lists Intiface / Buttplug support."
+    },
+    {
+      "name": "Crooked Rook",
+      "url": "https://github.com/FrostyX/crooked-rook",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": false,
+      "details": "Runs on Linux"
+    },
+    {
+      "name": "Game Interface For Toys (Skyrim and Fallout 4)",
+      "url": "https://github.com/MinLL/GameInterfaceForToys",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only Lists Intiface / Buttplug support."
+    },
+    {
+      "name": "Lethal Vibrations (Lethal Company)",
+      "url": "https://thunderstore.io/c/lethal-company/p/LethalPlugging/LethalVibrations",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Cult of the Buttplug (Cult of the Lamb)",
+      "url": "https://cult-of-the-lamb.thunderstore.io/package/nonpolynomial/CultOfTheButtplug",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Team Frotress 2 (Team Fortress 2)",
+      "url": "https://github.com/fionafibration/team-frotress-2",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, (new fork that works on linux), both require Intiface Central"
+    },
+    {
+      "name": "Buttplug Knight (Hollow Knight)",
+      "url": "https://github.com/danatron1/ButtplugKnight",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Geometry Plug",
+      "url": "https://github.com/Zelfmonco/Geometry-Plug",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows Mac and Android only, requires Intiface Central"
+    },
+    {
+      "name": "R.E.P.L.U.G.",
+      "url": "https://github.com/Zelfmonco/R.E.P.L.U.G",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows only, requires Intiface Central"
+    },
+    {
+      "name": "Butt Saber",
+      "url": "https://github.com/jackmg2/ButtSaber",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "CuButt",
+      "url": "https://mods.factorio.com/mod/cubutt",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Linux only, requires Intiface Central"
+    },
+    {
+      "name": "HentaiPlay (DeppartPrototype)",
+      "url": "https://github.com/Ljzd-PRO/DeppartPrototypeHentaiPlayMod",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central and Melonloader"
+    },
+    {
+      "name": "OpenPlanet Haptics",
+      "url": "https://gitlab.com/fentrasLABS/openplanet/haptics",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Viral Tremors",
+      "url": "https://github.com/bananasov/ViralTremors",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "WebfishingButtplug",
+      "url": "https://github.com/elliotcubit/WebfishingButtplug",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central & GDWeave"
+    },
+    {
+      "name": "CelestePlug",
+      "url": "https://gamebanana.com/mods/554604",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central and Everest"
+    },
+    {
+      "name": "Creepy Redneck Dinosaur Mansion Buttplug 3",
+      "url": "https://github.com/qdot/creepy-redneck-dinosaur-mansion-buttplug-3",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Pegginglin",
+      "url": "https://github.com/qdot/pegginglin",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "World of Buttcraft",
+      "url": "https://github.com/PhilipDecoco/World-of-Buttcraft",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central and several other"
+    },
+    {
+      "name": "Payday 2 - Heister's Haptics",
+      "url": "https://modworkshop.net/mod/49879",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Wholesome Club Extensions (WCE)",
+      "url": "https://github.com/KittenApps/WCE",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Rocket League Buttplug (RLBP)",
+      "url": "https://github.com/idunnojustletme/RLBP",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Haste: Broken Minds",
+      "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3459133778",
+      "section": "Games",
+      "category": "Game Mods",
+      "listsIntiface": true,
+      "details": "Windows 10+ only, requires Intiface Central"
+    },
+    {
+      "name": "Crotch-Stim: Get Off (CS:GO)",
+      "url": "https://sr.ht/~hornycactus/CrotchStimGetOff",
+      "section": "Games",
+      "category": "Counter-Strike",
+      "listsIntiface": true,
+      "details": "Desktop Cross Platform Lists Intiface / Buttplug support."
+    },
+    {
+      "name": "cs2-buttplug (Counter-Strike 2)",
+      "url": "https://github.com/gloss-click/cs2-buttplug",
+      "section": "Games",
+      "category": "Counter-Strike",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central)"
+    },
+    {
+      "name": "OverStim (Overwatch 2)",
+      "url": "https://codeberg.org/pharmercy/OverStim",
+      "section": "Games",
+      "category": "Overwatch 2",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central)"
+    },
+    {
+      "name": "RumbleRain",
+      "url": "https://thunderstore.io/package/quasikyo/RumbleRain",
+      "section": "Games",
+      "category": "Risk of Rain 2",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central)"
+    },
+    {
+      "name": "Updated RiskOfRumble",
+      "url": "https://thunderstore.io/package/exp111/RiskOfRumble",
+      "section": "Games",
+      "category": "Risk of Rain 2",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central)"
+    },
+    {
+      "name": "ButtplugMC (Minecraft)",
+      "url": "https://github.com/Cyloci/ButtplugMc",
+      "section": "Games",
+      "category": "Minecraft",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central)"
+    },
+    {
+      "name": "Minegasm (Minecraft)",
+      "url": "https://minegasm.therainbowville.com",
+      "section": "Games",
+      "category": "Minecraft",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central) Uses Forge. Uses Fabric."
+    },
+    {
+      "name": "mInetiface (Minecraft)",
+      "url": "https://github.com/Fyustorm/mInetiface",
+      "section": "Games",
+      "category": "Minecraft",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central) Uses Fabric."
+    },
+    {
+      "name": "FFXIV Vibe Plugin",
+      "url": "https://github.com/kaciexx/FFXIV_Vibe_Plugin",
+      "section": "Games",
+      "category": "FFXIV",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central) Uses Dalamud. Some features require a paid subscription."
+    },
+    {
+      "name": "AetherSense Redux (Beta)",
+      "url": "https://github.com/digital-pet/AetherSenseRedux",
+      "section": "Games",
+      "category": "FFXIV",
+      "listsIntiface": true,
+      "details": "Windows 10+ only (requires Intiface Central) Uses Dalamud."
+    },
+    {
+      "name": "Viberaria",
+      "url": "https://github.com/notasuka/Viberaria",
+      "section": "Games",
+      "category": "Terraria",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central)"
+    },
+    {
+      "name": "Terragasm",
+      "url": "https://github.com/nih0n/terragasm",
+      "section": "Games",
+      "category": "Terraria",
+      "listsIntiface": true,
+      "details": "Cross Platform (requires Intiface Central)"
+    }
+  ]
+}

@@ -6,6 +6,10 @@ HapticLink 1.2 adds an input bridge for integrations that use the Buttplug proto
 
 CS2 and Overwatch 2 have preconfigured, disabled tabs on first launch. Plugins adds/removes game tabs and imports custom integrations. CS2 installs its GSI config and edits effects directly. Overwatch connects through the separate OverStim screen-detection companion; its tab configures the connection and launches a selected install. See [PLUGINS.md](PLUGINS.md).
 
+## Community discovery and host / port connections
+
+**Plugins → Discover** reads the community catalog, provides setup guides and adds dedicated tabs. For mods with separate IP and port settings, assign the shared address under the game's **Host / port connection** section. This routes root WebSocket connections into that tab rather than bypassing its enable switch and gain. One tab can own that address at a time; dedicated profile addresses remain independent. See [PLUGINS.md](PLUGINS.md).
+
 ## Using apps from the Intiface ecosystem
 
 1. Connect HapticLink to Lovense Remote as usual.
