@@ -8,7 +8,9 @@ The **Plugins** tab manages game integrations, which appear as their own tabs. C
 
 ## Run
 
-Extract the Windows `.7z` download with 7-Zip and run `HapticLink.exe`. The self-contained build includes .NET. The local copy requested in this session is in `Documents\HapticLink-1.2`.
+Download [HapticLink-win-x64-1.5.1.exe](https://github.com/Leafers-code/HapticLink/releases/download/v1.5.1-preview/HapticLink-win-x64-1.5.1.exe) and run it. This standalone build includes .NET, native libraries and the app's data. On first launch it automatically extracts its files into .NET's per-user cache. It retains the same settings folder as the folder-based app. [Checksum](../../downloads/SHA256SUMS-Windows-exe-1.5.1.txt).
+
+The Windows `.7z` folder package is also available: extract it with 7-Zip and run `HapticLink.exe`. The local copy requested earlier in this session remains in `Documents\HapticLink-1.2`.
 
 Connect to Lovense Remote's Game Mode as before and arm output only when ready. Settings and logs remain in `%LOCALAPPDATA%\HapticLink`; the new app starts disarmed and does not auto-connect. The original recovered Windows WPF source in `src/windows` is preserved separately.
 
@@ -23,3 +25,9 @@ dotnet publish src/linux/HapticLink.csproj -c Release -r win-x64 --self-containe
 ```
 
 The shared app currently remains under `src/linux` for continuity. Windows capture/rumble dependencies are included only for a Windows runtime identifier.
+
+To build the standalone executable, use the included publish profile:
+
+```powershell
+dotnet publish src/linux/HapticLink.csproj -p:PublishProfile=WindowsSingleFile -o publish/windows-single-file
+```

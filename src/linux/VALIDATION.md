@@ -4,6 +4,7 @@ Built November 3, 2026 with .NET SDK 8.0.427 and Avalonia 11.3.22 on Windows x64
 
 ## Passed
 
+- November 4, 2026: the standalone Windows executable was published with compressed, self-contained .NET bundling. It was launched from a folder containing only the EXE with isolated test settings; the 1.5.1 window loaded disarmed and the bundled community catalog was present in its extracted data. No code behavior changed for this additional packaging format.
 - Release compilation: zero warnings and errors.
 - 156 C# checks, including a real connection from the official Buttplug C# 5.0.1 client: discovery, vibration and StopCmd. Raw v2/v3/v4 clients verify handshakes, capabilities, scanning, command validation, disconnect and missing-ping expiry.
 - Real loopback HTTP event requests; invalid-level rejection; pulse expiry; CS2 baseline, local-player kill and spectating fixtures; event source integration with the armed mixer; immediate clearing of release smoothing on stop.

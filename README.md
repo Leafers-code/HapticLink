@@ -4,6 +4,8 @@ A desktop app that maps game audio, controller rumble, VRChat OSC and manual pat
 
 This repository includes a Linux port and the recovered original Windows application.
 
+[Download the Windows app (.exe)](https://github.com/Leafers-code/HapticLink/releases/download/v1.5.1-preview/HapticLink-win-x64-1.5.1.exe) — download and run. Includes .NET and the required app files. [Other downloads](downloads/).
+
 The updated 1.5.1 app also has a [Windows build](src/linux/README-Windows.md), with WASAPI output capture and ViGEm/XInput rumble. Per-application audio isolation is currently Linux-only; the overlay, EQ, integration bridge and game-focus pausing are available in the new Windows app.
 
 ![HapticLink classic interface](docs/classic-preview.png)

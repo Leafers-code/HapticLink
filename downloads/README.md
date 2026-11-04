@@ -4,7 +4,8 @@
 
 Adds direct plugin removal with Undo, corrected tab scrolling/dropdowns, and a new app icon. Includes the searchable community plugin browser: 69 projects including 44 game integrations, live list refresh, offline cache, platform filters and one-click connection-tab setup. FFXIV has its Dalamud repository and in-game instructions. Host/port-only clients can be assigned to a game tab. External game mods still require their own installation; community game sessions are not live-tested. [Plugin guide](../src/linux/PLUGINS.md).
 
-- [Windows x64 app](HapticLink-win-x64-1.5.1-preview.7z) — extract with 7-Zip and run HapticLink.exe. [Windows guide](../src/linux/README-Windows.md).
+- [Windows x64 executable (.exe)](https://github.com/Leafers-code/HapticLink/releases/download/v1.5.1-preview/HapticLink-win-x64-1.5.1.exe) — download and run; includes .NET and automatically unpacks its app files. [EXE checksum](SHA256SUMS-Windows-exe-1.5.1.txt).
+- [Windows x64 folder package](HapticLink-win-x64-1.5.1-preview.7z) — extract with 7-Zip and run HapticLink.exe. [Windows guide](../src/linux/README-Windows.md).
 - [Linux x64 app](HapticLink-linux-x64-1.5.1-preview.tar.xz) — self-contained; extract and run ./HapticLink. [Linux guide](../src/linux/README-Linux.md).
 - [Source code](HapticLink-source-1.5.1-preview.zip)
 - [SHA-256 checksums](SHA256SUMS-1.5.1.txt)
